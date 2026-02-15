@@ -16,8 +16,15 @@
 package com.example.marsphotos.data
 
 import android.util.Log
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.example.myapplication.DB.DAO.DaoEstudiante
 import com.example.myapplication.network.SICENETWService
 import com.example.myapplication.network.bodyacceso
+import com.example.myapplication.worker.FetchAutorizacionWorker
+import com.example.myapplication.worker.GuardarDatosWorker
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.BufferedReader
 import java.io.IOException
@@ -26,6 +33,7 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
+import kotlin.comparisons.then
 
 /**
  * Repository that fetch mars photos list from marsApi.
@@ -35,10 +43,11 @@ interface SNRepository {
     suspend fun acceso(m: String, p: String): String
     suspend fun datos_alumno(): String
 
-
 }
 
-
+/**
+ * Clase para el uso del servicio de las funciones de SNNetwork
+ */
 class DBLocalSNRepository(val apiDB : Any):SNRepository {
     override suspend fun acceso(m: String, p: String): String {
         //TODO("Not yet implemented")
@@ -56,11 +65,31 @@ class DBLocalSNRepository(val apiDB : Any):SNRepository {
     }
 }
 
+class SNReposiotory(
+    private val apiService: SICENETWService,
+    private val alumnoDao: DaoEstudiante,
+    private val workManager: WorkManager
+){
+    fun perfilLocal(matricula: String) = alumnoDao.getPerfil(matricula)
+
+    fun sincronizacionDeDatos(matricula: String, pass: String){
+        val data = workDataOf("mat" to matricula, "pass" to pass)
+
+        workManager.beginUniqueWork(
+            "sync_auth_${matricula}",
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<FetchAutorizacionWorker>().setInputData(data).build()
+        ).then(
+            OneTimeWorkRequestBuilder<GuardarDatosWorker>().build()
+        ).enqueue()
+    }
+}
+
 /**
  * Network Implementation of Repository that fetch mars photos list from marsApi.
  */
 class NetworSNRepository(
-    private val snApiService: SICENETWService
+    private val snApiService: SICENETWService,
 ) : SNRepository {
     /** Fetches list of MarsPhoto from marsApi*/
     override suspend fun acceso(m: String, p: String): String {
@@ -186,3 +215,4 @@ class NetworSNRepository(
     }
 
 }
+

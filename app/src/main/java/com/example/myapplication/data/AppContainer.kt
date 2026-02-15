@@ -6,6 +6,7 @@ import ReceivedCookiesInterceptor
 import android.content.Context
 import com.example.marsphotos.data.NetworSNRepository
 import com.example.marsphotos.data.SNRepository
+import com.example.myapplication.DB.AppDataBase
 import com.example.myapplication.network.SICENETWService
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -18,6 +19,7 @@ import retrofit2.converter.simplexml.SimpleXmlConverterFactory
 interface AppContainer {
 
     val snRepository: SNRepository
+    val database: AppDataBase
     
 }
 
@@ -26,16 +28,16 @@ interface AppContainer {
  *
  * Variables are initialized lazily and the same instance is shared across the whole app.
  */
-class DefaultAppContainer(applicationContext: Context) : AppContainer {
+class DefaultAppContainer(private val context:Context) : AppContainer {
     private val baseUrlSN = "https://sicenet.surguanajuato.tecnm.mx"
     private var client: OkHttpClient
     init {
         client = OkHttpClient()
         val builder = OkHttpClient.Builder()
 
-        builder.addInterceptor(AddCookiesInterceptor(applicationContext)) // VERY VERY IMPORTANT
+        builder.addInterceptor(AddCookiesInterceptor(context)) // VERY VERY IMPORTANT
 
-        builder.addInterceptor(ReceivedCookiesInterceptor(applicationContext)) // VERY VERY IMPORTANT
+        builder.addInterceptor(ReceivedCookiesInterceptor(context)) // VERY VERY IMPORTANT
 
         client = builder.build()
     }
@@ -57,5 +59,9 @@ class DefaultAppContainer(applicationContext: Context) : AppContainer {
      */
     override val snRepository: NetworSNRepository by lazy {
         NetworSNRepository(retrofitServiceSN)
+    }
+
+    override val database: AppDataBase by lazy {
+        AppDataBase.getDatabase(context)
     }
 }
