@@ -14,5 +14,5 @@ interface DaoEstudiante {
     fun getPerfil(matricula: String): Flow<Estudiante>
 
     @Insert(onConflict = OnConflictStrategy.Companion.REPLACE)
-    suspend fun insertarDatosPerfil(perfil: Estudiante): Estudiante?
+    suspend fun insertarDatosPerfil(perfil: Estudiante)
 }

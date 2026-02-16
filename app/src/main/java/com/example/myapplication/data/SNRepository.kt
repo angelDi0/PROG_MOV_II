@@ -64,27 +64,6 @@ class DBLocalSNRepository(val apiDB : Any):SNRepository {
         TODO("Not yet implemented")
     }
 }
-
-class SNReposiotory(
-    private val apiService: SICENETWService,
-    private val alumnoDao: DaoEstudiante,
-    private val workManager: WorkManager
-){
-    fun perfilLocal(matricula: String) = alumnoDao.getPerfil(matricula)
-
-    fun sincronizacionDeDatos(matricula: String, pass: String){
-        val data = workDataOf("mat" to matricula, "pass" to pass)
-
-        workManager.beginUniqueWork(
-            "sync_auth_${matricula}",
-            ExistingWorkPolicy.REPLACE,
-            OneTimeWorkRequestBuilder<FetchAutorizacionWorker>().setInputData(data).build()
-        ).then(
-            OneTimeWorkRequestBuilder<GuardarDatosWorker>().build()
-        ).enqueue()
-    }
-}
-
 /**
  * Network Implementation of Repository that fetch mars photos list from marsApi.
  */

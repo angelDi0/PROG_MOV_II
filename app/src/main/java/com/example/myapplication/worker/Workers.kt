@@ -1,23 +1,25 @@
 package com.example.myapplication.worker
 
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.myapplication.SICENETApplication
-import com.example.myapplication.network.SICENETWService
 import com.example.myapplication.network.bodyacceso
+import com.example.myapplication.viewmodel.DatosAlumno
 import kotlin.text.format
+import kotlinx.serialization.json.Json
 
 interface SNInterface {
 
 }
 
+private val json = Json { ignoreUnknownKeys = true }
+
 class FetchAutorizacionWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val mat = inputData.getString("mat") ?: return Result.failure()
-        val pass = inputData.getString("pass") ?: return Result.failure()
+        val mat = inputData.getString("matricula") ?: return Result.failure()
+        val pass = inputData.getString("password") ?: return Result.failure()
 
         val apiService = (applicationContext as SICENETApplication).container.snRepository
 
@@ -36,18 +38,25 @@ class FetchAutorizacionWorker(context: Context, params: WorkerParameters) : Coro
     }
 }
 
-class GuardarDatosWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+
+class GuardarDatosWorker(
+    appContext: Context,
+    params: WorkerParameters
+) : CoroutineWorker(appContext, params) {
+
     override suspend fun doWork(): Result {
-        val jsonData = inputData.getString("json_data") ?: return Result.failure()
-        val mat = inputData.getString("mat") ?: ""
+        // 1. Recibe el JSON como dato de ENTRADA
+        val perfilJson = inputData.getString("perfil_json") ?: return Result.failure()
+
+        // Accede al DAO a través del Application
+        val alumnoDao = (applicationContext as SICENETApplication).container.database.perfilDao()
 
         return try {
-            val dao = (applicationContext as SICENETApplication).container.snRepository
-
-            Log.d("Worker", "Datos Guardados Localmente")
+            // 2. Convierte el JSON a objeto y lo guarda
+            val alumno = json.decodeFromString<DatosAlumno>(perfilJson)
+            alumnoDao.insertarDatosPerfil(alumno.copy(lastUpdated = System.currentTimeMillis()))
             Result.success()
-        } catch (e: Exception){
-            Log.e("Worker", "Error al guardar en DB local: ${e.message}")
+        } catch (e: Exception) {
             Result.failure()
         }
     }

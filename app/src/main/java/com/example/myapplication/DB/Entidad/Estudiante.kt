@@ -21,5 +21,8 @@ data class Estudiante(
     val especialidad: String = "",
     val carrera: String = "",
     val lineamiento: Int = 0,
-    val nombre: String = ""
+    val nombre: String = "",
+
+    // campo para saber cuando fue la ultima vez que se actualizo
+    val lastUpdated: Long = System.currentTimeMillis()
 )
