@@ -23,6 +23,9 @@ import androidx.work.workDataOf
 import com.example.myapplication.DB.DAO.DaoEstudiante
 import com.example.myapplication.network.SICENETWService
 import com.example.myapplication.network.bodyacceso
+import com.example.myapplication.viewmodel.CalificacionFinalItem
+import com.example.myapplication.viewmodel.CalificacionesUnidadItem
+import com.example.myapplication.viewmodel.KardexItem
 import com.example.myapplication.worker.FetchAutorizacionWorker
 import com.example.myapplication.worker.GuardarDatosWorker
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -42,7 +45,10 @@ interface SNRepository {
     /** Fetches list of MarsPhoto from marsApi */
     suspend fun acceso(m: String, p: String): String
     suspend fun datos_alumno(): String
-
+    suspend fun getCargaAcademica(): String
+    suspend fun getKardex(): String
+    suspend fun getCalificacionesUnidad(): String
+    suspend fun getCalificacionesFinales(): String
 }
 
 /**
@@ -61,6 +67,22 @@ class DBLocalSNRepository(val apiDB : Any):SNRepository {
     }
 
     override suspend fun datos_alumno(): String {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun getCargaAcademica(): String {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun getKardex(): String {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun getCalificacionesUnidad(): String {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun getCalificacionesFinales(): String {
         TODO("Not yet implemented")
     }
 }
@@ -110,6 +132,98 @@ class NetworSNRepository(
                 val resultado = xmlResponse
                     .substringAfter("<getAlumnoAcademicoWithLineamientoResult>")
                     .substringBefore("</getAlumnoAcademicoWithLineamientoResult>")
+
+                Log.d("RXML", "Resultado extraído: $resultado")
+                resultado
+            } else {
+                Log.e("RXML", "No se encontró la etiqueta accesoLoginResult")
+                ""
+            }
+        } catch(e: Exception){
+            Log.e("RXML", "Error en la peticion de datos: ${e.message}")
+            ""
+        }
+    }
+
+    override suspend fun getCargaAcademica(): String { // :( FALTA
+        return try {
+            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val xmlResponse = res.string()
+            Log.d("RXML", "XML Completo: $xmlResponse")
+
+            if (xmlResponse.contains("<getCargaAcademicaByAlumnoResult>")) {
+                val resultado = xmlResponse
+                    .substringAfter("<getCargaAcademicaByAlumnoResult>")
+                    .substringBefore("</getCargaAcademicaByAlumnoResult>")
+
+                Log.d("RXML", "Resultado extraído: $resultado")
+                resultado
+            } else {
+                Log.e("RXML", "No se encontró la etiqueta accesoLoginResult")
+                ""
+            }
+        } catch(e: Exception){
+            Log.e("RXML", "Error en la peticion de datos: ${e.message}")
+            ""
+        }
+    }
+
+    override suspend fun getKardex(): String { // :( FALTA
+        return try {
+            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val xmlResponse = res.string()
+            Log.d("RXML", "XML Completo: $xmlResponse")
+
+            if (xmlResponse.contains("<getAllKardexConPromedioByAlumnoResult>")) {
+                val resultado = xmlResponse
+                    .substringAfter("<getAllKardexConPromedioByAlumnoResult>")
+                    .substringBefore("</getAllKardexConPromedioByAlumnoResult>")
+
+                Log.d("RXML", "Resultado extraído: $resultado")
+                resultado
+            } else {
+                Log.e("RXML", "No se encontró la etiqueta accesoLoginResult")
+                ""
+            }
+        } catch(e: Exception){
+            Log.e("RXML", "Error en la peticion de datos: ${e.message}")
+            ""
+        }
+    }
+
+    override suspend fun getCalificacionesUnidad(): String { // :( FALTA
+        return try {
+            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val xmlResponse = res.string()
+            Log.d("RXML", "XML Completo: $xmlResponse")
+
+            if (xmlResponse.contains("<getCalifUnidadesByAlumnoResult>")) {
+                val resultado = xmlResponse
+                    .substringAfter("<getCalifUnidadesByAlumnoResult>")
+                    .substringBefore("</getCalifUnidadesByAlumnoResult>")
+
+                Log.d("RXML", "Resultado extraído: $resultado")
+                resultado
+            } else {
+                Log.e("RXML", "No se encontró la etiqueta accesoLoginResult")
+                ""
+            }
+        } catch(e: Exception){
+            Log.e("RXML", "Error en la peticion de datos: ${e.message}")
+            ""
+        }
+    }
+
+    override suspend fun getCalificacionesFinales(): String { // :( FALTA
+        return try {
+            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val xmlResponse = res.string()
+            Log.d("RXML", "XML Completo: $xmlResponse")
+
+            if (xmlResponse.contains("<getAllCalifFinalByAlumnosResult>")) {
+                val resultado = xmlResponse
+                    .substringAfter("<getAllCalifFinalByAlumnosResult>")
+                    .substringBefore("</getAllCalifFinalByAlumnosResult>")
 
                 Log.d("RXML", "Resultado extraído: $resultado")
                 resultado
