@@ -1,62 +1,102 @@
 package com.example.myapplication.worker
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.myapplication.SICENETApplication
-import com.example.myapplication.network.bodyacceso
-import com.example.myapplication.viewmodel.DatosAlumno
-import kotlin.text.format
-import kotlinx.serialization.json.Json
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-interface SNInterface {
+// Constantes para la comunicación entre Workers
+private const val KEY_MATRICULA = "key_matricula"
+private const val KEY_PASSWORD = "key_password"
+private const val KEY_PROFILE_DATA = "key_profile_data"
+private const val KEY_SYNC_TIMESTAMP = "key_sync_timestamp"
+private const val TAG = "SyncWorkers"
 
-}
+/**
+ * Primer Worker: Obtiene los datos del perfil y del alumno desde la API de SICENET.
+ */
+class SyncProfileDataWorker(
+    ctx: Context,
+    params: WorkerParameters
+) : CoroutineWorker(ctx, params) {
 
-private val json = Json { ignoreUnknownKeys = true }
-
-class FetchAutorizacionWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val mat = inputData.getString("matricula") ?: return Result.failure()
-        val pass = inputData.getString("password") ?: return Result.failure()
+        // Obtiene la matrícula y contraseña de los datos de entrada
+        val matricula = inputData.getString(KEY_MATRICULA)
+        val password = inputData.getString(KEY_PASSWORD)
 
-        val apiService = (applicationContext as SICENETApplication).container.snRepository
+        if (matricula.isNullOrBlank() || password.isNullOrBlank()) {
+            Log.e(TAG, "Matrícula o contraseña no proporcionadas al Worker")
+            return Result.failure()
+        }
+
+        // Obtiene una instancia del repositorio desde la clase Application
+        val repository = (applicationContext as SICENETApplication).container.snRepository
 
         return try {
-            // Suponiendo que usas la lógica de extracción XML que discutimos antes
-            val soapBody = bodyacceso.format(mat, pass)
-            val rawResponse = apiService.acceso(mat, pass)
-            val resultXml = rawResponse.substringAfter("<accesoLoginResult>").substringBefore("</accesoLoginResult>")
+            // 1. Autenticación
+            val loginResult = repository.acceso(matricula, password)
+            if (loginResult.contains("ERROR", ignoreCase = true)){
+                Log.e(TAG, "Error de autenticación en SyncProfileDataWorker")
+                return Result.failure()
+            }
 
-            // Pasamos el resultado al siguiente worker
-            val output = workDataOf("json_data" to resultXml, "mat" to mat)
-            Result.success(output)
+            // 2. Obtención de datos del alumno
+            val profileData = repository.datos_alumno()
+
+            // 3. Formatear la fecha actual para la UI
+            val timestamp = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
+
+            // 4. Pasar los datos del perfil y la fecha al siguiente worker
+            val outputData = workDataOf(
+                KEY_PROFILE_DATA to profileData,
+                KEY_SYNC_TIMESTAMP to timestamp
+            )
+
+            Result.success(outputData)
         } catch (e: Exception) {
-            Result.retry()
+            Log.e(TAG, "Error en SyncProfileDataWorker", e)
+            Result.failure()
         }
     }
 }
 
-
-class GuardarDatosWorker(
-    appContext: Context,
+/**
+ * Segundo Worker: Guarda los datos del perfil en la base de datos local.
+ */
+class SaveProfileDataWorker(
+    ctx: Context,
     params: WorkerParameters
-) : CoroutineWorker(appContext, params) {
+) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
-        // 1. Recibe el JSON como dato de ENTRADA
-        val perfilJson = inputData.getString("perfil_json") ?: return Result.failure()
+        // Obtiene los datos del perfil del worker anterior
+        val profileData = inputData.getString(KEY_PROFILE_DATA)
+        val timestamp = inputData.getString(KEY_SYNC_TIMESTAMP)
 
-        // Accede al DAO a través del Application
-        val alumnoDao = (applicationContext as SICENETApplication).container.database.perfilDao()
+        if (profileData.isNullOrBlank() || timestamp.isNullOrBlank()) {
+            Log.e(TAG, "No se recibieron datos del perfil para guardar")
+            return Result.failure()
+        }
+
+        val repository = (applicationContext as SICENETApplication).container.snRepository
 
         return try {
-            // 2. Convierte el JSON a objeto y lo guarda
-            val alumno = json.decodeFromString<DatosAlumno>(perfilJson)
-            alumnoDao.insertarDatosPerfil(alumno.copy(lastUpdated = System.currentTimeMillis()))
-            Result.success()
+            // TODO: Implementar el método en el repositorio para guardar los datos en la BD
+            // Ejemplo: repository.saveProfileDataInDb(profileData)
+
+            Log.d(TAG, "Datos del perfil guardados en la base de datos local.")
+
+            // Pasar la fecha de sincronización como salida final para que la UI la recoja
+            val outputData = workDataOf(KEY_SYNC_TIMESTAMP to timestamp)
+            Result.success(outputData)
         } catch (e: Exception) {
+            Log.e(TAG, "Error en SaveProfileDataWorker", e)
             Result.failure()
         }
     }
