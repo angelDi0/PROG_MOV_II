@@ -17,12 +17,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
-import com.example.myapplication.ui.screens.HomeScreen
 import com.example.myapplication.ui.screens.LoginScreen
 import com.example.myapplication.viewmodel.SNUiState
 import com.example.myapplication.viewmodel.SNViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.R
+import com.example.myapplication.ui.screens.PantallaPrueba
 
 
 @Composable
@@ -42,7 +42,7 @@ fun SNApp() {
 
             when (val state = snViewModel.snUiState) {
                 is SNUiState.Success -> {
-                    HomeScreen(
+                    PantallaPrueba(
                         viewModel = snViewModel,
                         modifier = Modifier.padding(it)
                     )
