@@ -147,7 +147,7 @@ class NetworSNRepository(
 
     override suspend fun getCargaAcademica(): String { // :( FALTA
         return try {
-            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val res = snApiService.getCargaAcademica(bodyacceso.toRequestBody())
             val xmlResponse = res.string()
             Log.d("RXML", "XML Completo: $xmlResponse")
 
@@ -170,7 +170,7 @@ class NetworSNRepository(
 
     override suspend fun getKardex(): String { // :( FALTA
         return try {
-            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val res = snApiService.getKardex(bodyacceso.toRequestBody())
             val xmlResponse = res.string()
             Log.d("RXML", "XML Completo: $xmlResponse")
 
@@ -193,7 +193,7 @@ class NetworSNRepository(
 
     override suspend fun getCalificacionesUnidad(): String { // :( FALTA
         return try {
-            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val res = snApiService.getCalificacionesUnidad(bodyacceso.toRequestBody())
             val xmlResponse = res.string()
             Log.d("RXML", "XML Completo: $xmlResponse")
 
@@ -216,7 +216,7 @@ class NetworSNRepository(
 
     override suspend fun getCalificacionesFinales(): String { // :( FALTA
         return try {
-            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val res = snApiService.getCalificacionesFinales(bodyacceso.toRequestBody())
             val xmlResponse = res.string()
             Log.d("RXML", "XML Completo: $xmlResponse")
 

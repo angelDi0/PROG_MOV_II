@@ -1,5 +1,7 @@
 package com.example.myapplication.network
 
+import com.example.myapplication.viewmodel.CargaAcademicaItem
+import com.example.myapplication.viewmodel.KardexItem
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.http.Body
@@ -30,6 +32,50 @@ val bodyPerfil =
                 <getAlumnoAcademicoWithLineamiento xmlns="http://tempuri.org/" />
               </soap:Body>
             </soap:Envelope>
+    """.trimIndent()
+
+val CalificacionFinalItem =
+    """
+        <?xml version="1.0" encoding="utf-8"?>
+            <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                <soap:Body>
+                    <getCalifUnidadesByAlumno xmlns="http://tempuri.org/" />
+                </soap:Body>
+            </soap:Envelope>
+    """.trimIndent()
+
+val CalificacionesUnidadItem =
+    """
+        <?xml version="1.0" encoding="utf-8"?>
+        <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+          <soap:Body>
+            <getAllCalifFinalByAlumnos xmlns="http://tempuri.org/">
+              <bytModEducativo>unsignedByte</bytModEducativo>
+            </getAllCalifFinalByAlumnos>
+          </soap:Body>
+        </soap:Envelope>
+    """.trimIndent()
+
+val KardexItem =
+    """
+        <?xml version="1.0" encoding="utf-8"?>
+        <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+          <soap:Body>
+            <getAllKardexConPromedioByAlumno xmlns="http://tempuri.org/">
+              <aluLineamiento>unsignedByte</aluLineamiento>
+            </getAllKardexConPromedioByAlumno>
+          </soap:Body>
+        </soap:Envelope>
+    """.trimIndent()
+
+val CargaAcademicaItem =
+    """
+        <?xml version="1.0" encoding="utf-8"?>
+        <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+          <soap:Body>
+            <getCargaAcademicaByAlumno xmlns="http://tempuri.org/" />
+          </soap:Body>
+        </soap:Envelope>
     """.trimIndent()
 
 /*
@@ -65,4 +111,32 @@ interface SICENETWService {
     )
     @POST("/ws/wsalumnos.asmx")
     suspend fun datos_alumno(@Body soap: RequestBody): ResponseBody
+
+    @Headers(
+        "Content-Type: text/xml;charset=utf-8",
+        "SOAPAction: http://tempuri.org/getCalifUnidadesByAlumno",
+    )
+    @POST("/ws/wsalumnos.asmx")
+    suspend fun getCalificacionesUnidad(@Body soap: RequestBody): ResponseBody
+
+    @Headers(
+        "Content-Type: text/xml;charset=utf-8",
+        "SOAPAction: http://tempuri.org/getAllCalifFinalByAlumnos",
+    )
+    @POST("/ws/wsalumnos.asmx")
+    suspend fun getCalificacionesFinales(@Body soap: RequestBody): ResponseBody
+
+    @Headers(
+        "Content-Type: text/xml;charset=utf-8",
+        "SOAPAction: http://tempuri.org/getAllKardexConPromedioByAlumno",
+    )
+    @POST("/ws/wsalumnos.asmx")
+    suspend fun getKardex(@Body soap: RequestBody): ResponseBody
+
+    @Headers(
+        "Content-Type: text/xml;charset=utf-8",
+        "SOAPAction: http://tempuri.org/getCargaAcademicaByAlumno",
+    )
+    @POST("/ws/wsalumnos.asmx")
+    suspend fun getCargaAcademica(@Body soap: RequestBody): ResponseBody
 }
