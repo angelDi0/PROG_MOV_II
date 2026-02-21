@@ -207,7 +207,18 @@ class SNViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val result = snRepository.getKardex()
+                Log.d("KARDEX_JSON", result)
+
+                if (result.isNullOrBlank()) {
+                    Log.d("KARDEX", "El servicio regresó vacío")
+                    kardex = emptyList()
+                    return@launch
+                }
+
                 kardex = jsonFormat.decodeFromString(result)
+
+                Log.d("KARDEX_SIZE", kardex.size.toString())
+
             } catch (e: Exception) {
                 Log.e("SNViewModel", "Error al cargar el kardex", e)
             }
