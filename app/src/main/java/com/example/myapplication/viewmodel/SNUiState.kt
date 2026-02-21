@@ -18,10 +18,11 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.example.marsphotos.data.DBLocalSNRepository
 import com.example.marsphotos.data.SNRepository
 import com.example.myapplication.DB.Entidad.Estudiante
 import com.example.myapplication.SICENETApplication
-import com.example.myapplication.worker.SaveProfileDataWorker
+import com.example.myapplication.worker.GuardarDatosPerfilWorker
 import com.example.myapplication.worker.SyncProfileDataWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,6 +62,7 @@ private val jsonFormat = Json { ignoreUnknownKeys = true }
 
 class SNViewModel(
     private val snRepository: SNRepository,
+    private val LocalSNRepository: DBLocalSNRepository,
     private val workManager: WorkManager,
     private val application: SICENETApplication
 ) : ViewModel() {
@@ -75,11 +77,13 @@ class SNViewModel(
 
     // Cambiamos alumnoData para que use la entidad Estudiante
     var alumnoData by mutableStateOf<Estudiante?>(null)
+        private set
 
     var cargaAcademica by mutableStateOf<List<CargaAcademicaItem>>(emptyList())
         private set
     var kardex by mutableStateOf<List<KardexItem>>(emptyList())
         private set
+
     var calificacionesUnidad by mutableStateOf<List<CalificacionesUnidadItem>>(emptyList())
         private set
     var calificacionesFinales by mutableStateOf<List<CalificacionFinalItem>>(emptyList())
@@ -105,11 +109,13 @@ class SNViewModel(
             if (!tieneInternet(context)) {
                 Log.d("ISV", "No tiene internet!!")
                 snUiState = SNUiState.Syncing("Sin conexión. Cargando datos locales...")
-                cargarDatosAlumno()
+                val datoslocales = LocalSNRepository.datos_alumno()
 
-                if (alumnoData != null) {
+                if(datoslocales.isNotBlank()){
+                    alumnoData = jsonFormat.decodeFromString(datoslocales)
                     snUiState = SNUiState.Success("Datos locales cargados.")
                     currentScreen = AppScreen.Home
+
                 } else {
                     snUiState = SNUiState.Error
                 }
@@ -131,7 +137,7 @@ class SNViewModel(
             .setInputData(inputData)
             .build()
 
-        val saveProfileWorker = OneTimeWorkRequestBuilder<SaveProfileDataWorker>().build()
+        val saveProfileWorker = OneTimeWorkRequestBuilder<GuardarDatosPerfilWorker>().build()
 
         workManager
             .beginUniqueWork(UNIQUE_PROFILE_SYNC_WORK, ExistingWorkPolicy.REPLACE, syncProfileWorker)
@@ -292,11 +298,23 @@ class SNViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val application = (this[APPLICATION_KEY] as SICENETApplication)
+                val container = application.container
                 val snRepository = application.container.snRepository
+
+                val database = container.database
+                val perfilDao = database.perfilDao()
+                val kardexDao = database.kardexDao()
+                val cargaAcademica = database.cargaAcademicaDao()
+                val cargaUnidad = database.calificacionesUnidadDao()
+                val cargaFinal = database.calificacionesFinalDao()
+
+                val snLocalRepository = DBLocalSNRepository(perfilDao, kardexDao, cargaAcademica, cargaUnidad, cargaFinal)
+
                 val workManager = WorkManager.getInstance(application)
                 SNViewModel(
                     snRepository = snRepository, 
                     workManager = workManager,
+                    LocalSNRepository = snLocalRepository,
                     application = application
                 )
             }

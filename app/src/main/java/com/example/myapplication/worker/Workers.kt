@@ -43,22 +43,21 @@ class SyncProfileDataWorker(
         val repository = (applicationContext as SICENETApplication).container.snRepository
 
         return try {
-            // 1. Autenticación
+            // LLAMADO DEL METODO ACCESO PARA ENTRAR A LA APLICACION
             val loginResult = repository.acceso(matricula, password)
             if (loginResult.contains("ERROR", ignoreCase = true)){
                 Log.e(TAG, "Error de autenticación en SyncProfileDataWorker")
                 return Result.failure()
             }
 
-            // 2. Obtención de datos del alumno
+            // obtiene datos del estudiante de la DB
             val profileData = repository.datos_alumno()
 
             Log.d(TAG, "Datos del perfild de estudiante antes de ser mandadoL: $profileData")
 
-            // 3. Formatear la fecha actual para la UI
             val timestamp = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
 
-            // 4. Pasar los datos del perfil y la fecha al siguiente worker
+            // mandamos los datos al siguiente worker
             val outputData = workDataOf(
                 KEY_PROFILE_DATA to profileData,
                 KEY_SYNC_TIMESTAMP to timestamp
@@ -75,7 +74,7 @@ class SyncProfileDataWorker(
 /**
  * Segundo Worker: Guarda los datos del perfil en la base de datos local.
  */
-class SaveProfileDataWorker(
+class GuardarDatosPerfilWorker(
     ctx: Context,
     params: WorkerParameters
 ) : CoroutineWorker(ctx, params) {
@@ -91,17 +90,22 @@ class SaveProfileDataWorker(
 
         return try {
 
+            // SE RECUPERAN LOS DATOS DEL WORKER ANTERIOR
+
             val estudiante = jsonParser.decodeFromString<Estudiante>(profileData)
             val dao = (applicationContext as SICENETApplication).container.database.perfilDao()
 
             Log.d("TAG", "Objetos parseados: $estudiante")
 
+            // LLAMADO DEL METODO DEL DAO PARA GUARDAR AL ESTUDIANTE
+
             dao.insertarDatosPerfil(estudiante)
 
             Log.d(TAG, "Datos del perfil guardados en la base de datos local.")
 
-
+            // GUARDAMOS CUANDO FUE LA ULTIMA VEZ QUE SE CONSULTO A LA DB
             val outputData = workDataOf(KEY_SYNC_TIMESTAMP to timestamp)
+
             Result.success(outputData)
         } catch (e: Exception) {
             Log.e(TAG, "Error en SaveProfileDataWorker", e)
