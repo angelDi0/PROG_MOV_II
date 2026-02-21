@@ -22,10 +22,13 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.myapplication.DB.DAO.DaoEstudiante
 import com.example.myapplication.network.SICENETWService
+import com.example.myapplication.network.bodyPerfil
 import com.example.myapplication.network.bodyacceso
 import com.example.myapplication.viewmodel.CalificacionFinalItem
 import com.example.myapplication.viewmodel.CalificacionesUnidadItem
 import com.example.myapplication.viewmodel.KardexItem
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 //import com.example.myapplication.worker.FetchAutorizacionWorker
 //import com.example.myapplication.worker.GuardarDatosWorker
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -54,7 +57,7 @@ interface SNRepository {
 /**
  * Clase para el uso del servicio de las funciones de SNNetwork
  */
-class DBLocalSNRepository(val apiDB : Any):SNRepository {
+class DBLocalSNRepository(private val daoEstudiante: DaoEstudiante):SNRepository {
     override suspend fun acceso(m: String, p: String): String {
         //TODO("Not yet implemented")
         //Reviso en base de datos
@@ -67,7 +70,13 @@ class DBLocalSNRepository(val apiDB : Any):SNRepository {
     }
 
     override suspend fun datos_alumno(): String {
-        TODO("Not yet implemented")
+        val estudiante = daoEstudiante.getPerfil()
+
+        return if (estudiante != null) {
+            Json.encodeToString(estudiante)
+        } else {
+            ""
+        }
     }
 
     override suspend fun getCargaAcademica(): String {
@@ -124,7 +133,7 @@ class NetworSNRepository(
 
     override suspend fun datos_alumno(): String {
         return try {
-            val res = snApiService.datos_alumno(bodyacceso.toRequestBody())
+            val res = snApiService.datos_alumno(bodyPerfil.toRequestBody())
             val xmlResponse = res.string()
             Log.d("RXML", "XML Completo: $xmlResponse")
 

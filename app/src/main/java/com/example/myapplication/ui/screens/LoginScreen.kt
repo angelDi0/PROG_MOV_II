@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.viewmodel.SNUiState
@@ -16,6 +17,8 @@ fun LoginScreen(
     viewModel: SNViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -47,7 +50,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         Button(
-            onClick = { viewModel.accesoSN() },
+            onClick = { viewModel.accesoSN(context) },
             modifier = Modifier.fillMaxWidth(),
             enabled = viewModel.snUiState !is SNUiState.Loading
         ) {

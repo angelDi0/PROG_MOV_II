@@ -22,8 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.myapplication.viewmodel.DatosAlumno
 import com.example.myapplication.viewmodel.SNViewModel
+import com.example.myapplication.DB.Entidad.Estudiante
 import kotlinx.serialization.InternalSerializationApi
 
 @OptIn(InternalSerializationApi::class)
@@ -140,7 +140,7 @@ fun HomeScreen(
 
 @OptIn(InternalSerializationApi::class)
 @Composable
-fun AcademicProgressCard(alumno: DatosAlumno) {
+fun AcademicProgressCard(alumno: Estudiante) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),

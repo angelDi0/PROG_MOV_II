@@ -1,5 +1,8 @@
 package com.example.myapplication.viewmodel
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,17 +19,15 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.marsphotos.data.SNRepository
+import com.example.myapplication.DB.Entidad.Estudiante
 import com.example.myapplication.SICENETApplication
 import com.example.myapplication.worker.SaveProfileDataWorker
 import com.example.myapplication.worker.SyncProfileDataWorker
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlinx.serialization.InternalSerializationApi
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import retrofit2.HttpException
-import java.io.IOException
 import java.util.UUID
 
 
@@ -58,10 +59,10 @@ enum class AppScreen {
 
 private val jsonFormat = Json { ignoreUnknownKeys = true }
 
-@OptIn(InternalSerializationApi::class)
 class SNViewModel(
     private val snRepository: SNRepository,
-    private val workManager: WorkManager // 3. Se inyecta una instancia de WorkManager.
+    private val workManager: WorkManager,
+    private val application: SICENETApplication
 ) : ViewModel() {
     var snUiState: SNUiState by mutableStateOf(SNUiState.Idle)
         private set
@@ -72,8 +73,8 @@ class SNViewModel(
     var matriculaInput by mutableStateOf("")
     var passwordInput by mutableStateOf("")
 
-    var alumnoData by mutableStateOf<DatosAlumno?>(null)
-        private set
+    // Cambiamos alumnoData para que use la entidad Estudiante
+    var alumnoData by mutableStateOf<Estudiante?>(null)
 
     var cargaAcademica by mutableStateOf<List<CargaAcademicaItem>>(emptyList())
         private set
@@ -84,7 +85,6 @@ class SNViewModel(
     var calificacionesFinales by mutableStateOf<List<CalificacionFinalItem>>(emptyList())
         private set
 
-    // 4. Nuevos estados para la fecha de la última sincronización y para observar el Worker.
     var lastSyncDate by mutableStateOf<String?>(null)
         private set
     var profileSyncWorkInfo by mutableStateOf<WorkInfo?>(null)
@@ -98,56 +98,74 @@ class SNViewModel(
         passwordInput = newValue
     }
 
-    // 5. Se modifica accesoSN para usar WorkManager.
-    fun accesoSN() {
+    fun accesoSN(context: Context) {
         if (matriculaInput.isBlank() || passwordInput.isBlank()) return
 
-        // TODO: Añadir lógica para comprobar la conexión a internet.
+        viewModelScope.launch {
+            if (!tieneInternet(context)) {
+                Log.d("ISV", "No tiene internet!!")
+                snUiState = SNUiState.Syncing("Sin conexión. Cargando datos locales...")
+                cargarDatosAlumno()
 
-        snUiState = SNUiState.Syncing("Autenticando y sincronizando perfil...")
+                if (alumnoData != null) {
+                    snUiState = SNUiState.Success("Datos locales cargados.")
+                    currentScreen = AppScreen.Home
+                } else {
+                    snUiState = SNUiState.Error
+                }
+            } else {
+                iniciarSincronizacionRemota(context)
+            }
+        }
+    }
+
+    private fun iniciarSincronizacionRemota(context: Context) {
+        snUiState = SNUiState.Syncing("Autenticando y sincronizando...")
 
         val inputData = workDataOf(
             KEY_MATRICULA to matriculaInput,
             KEY_PASSWORD to passwordInput
         )
 
-        // Worker para obtener datos de la API. Su salida será la entrada del siguiente.
         val syncProfileWorker = OneTimeWorkRequestBuilder<SyncProfileDataWorker>()
             .setInputData(inputData)
             .build()
 
-        // Worker para guardar los datos en la base de datos local.
         val saveProfileWorker = OneTimeWorkRequestBuilder<SaveProfileDataWorker>().build()
 
         workManager
-            .beginUniqueWork(
-                UNIQUE_PROFILE_SYNC_WORK,
-                ExistingWorkPolicy.REPLACE,
-                syncProfileWorker
-            )
+            .beginUniqueWork(UNIQUE_PROFILE_SYNC_WORK, ExistingWorkPolicy.REPLACE, syncProfileWorker)
             .then(saveProfileWorker)
             .enqueue()
 
-        // Se observa el estado del primer worker para actualizar la UI.
-        observeProfileSync(syncProfileWorker.id)
+        observeProfileSync(syncProfileWorker.id, context)
     }
 
-    // 6. Nueva función para observar el estado del Worker.
-    private fun observeProfileSync(workId: UUID) {
+    private fun observeProfileSync(workId: UUID, context: Context) {
         viewModelScope.launch {
             workManager.getWorkInfoByIdFlow(workId).collect { workInfo ->
                 profileSyncWorkInfo = workInfo
                 if (workInfo != null) {
                     when (workInfo.state) {
                         WorkInfo.State.SUCCEEDED -> {
+                            guardarDatosSesion(context, matriculaInput, passwordInput)
                             snUiState = SNUiState.Success("Sincronización completada.")
-                            // Ahora que la sincronización terminó, se cargan los datos desde la BD local.
                             cargarDatosAlumno()
-                            lastSyncDate = workInfo.outputData.getString(KEY_SYNC_TIMESTAMP)
-                            currentScreen = AppScreen.Home // Navegar a Home al terminar
+                            if(alumnoData != null) {
+                                currentScreen = AppScreen.Home
+                            }
                         }
-                        WorkInfo.State.FAILED -> snUiState = SNUiState.Error
-                        else -> { /* El estado ya es Syncing */ }
+                        WorkInfo.State.FAILED -> {
+                            Log.w("SNViewModel", "Sincronización falló. Cargando locales.")
+                            cargarDatosAlumno()
+                            if (alumnoData != null) {
+                                snUiState = SNUiState.Success("Mostrando datos locales.")
+                                currentScreen = AppScreen.Home
+                            } else {
+                                snUiState = SNUiState.Error
+                            }
+                        }
+                        else -> { /* En progreso... */ }
                     }
                 }
             }
@@ -156,14 +174,12 @@ class SNViewModel(
 
     fun onMenuOptionSelected(screen: AppScreen) {
         currentScreen = screen
-        // Carga los datos correspondientes a la pantalla si aún no han sido cargados.
-        // TODO: Implementar la lógica de WorkManager también para estas opciones como pide el punto 2b.
         when (screen) {
             AppScreen.CargaAcademica -> if (cargaAcademica.isEmpty()) cargarCargaAcademica()
             AppScreen.Kardex -> if (kardex.isEmpty()) cargarKardex()
             AppScreen.CalificacionesUnidad -> if (calificacionesUnidad.isEmpty()) cargarCalificacionesUnidad()
             AppScreen.CalificacionesFinales -> if (calificacionesFinales.isEmpty()) cargarCalificacionesFinales()
-            else -> { /* No action needed for Login or Home */ }
+            else -> { }
         }
     }
 
@@ -179,22 +195,24 @@ class SNViewModel(
         calificacionesFinales = emptyList()
     }
 
-    fun cargarDatosAlumno(){
-        viewModelScope.launch(Dispatchers.IO) {
-            try{
-                // Esta función ahora debe obtener los datos desde el repositorio local (Base de Datos).
-                val result = snRepository.datos_alumno()
-                alumnoData = jsonFormat.decodeFromString<DatosAlumno>(result)
-            } catch (e: Exception){
-                Log.e("SNViewModel", "Error al cargar datos del alumno desde la BD", e)
+    suspend fun cargarDatosAlumno() {
+        try {
+            val dao = application.container.database.perfilDao()
+            val estudianteLocal = withContext(Dispatchers.IO) {
+                dao.getPerfilSync()
             }
+
+            if (estudianteLocal != null) {
+                alumnoData = estudianteLocal
+            }
+        } catch (e: Exception) {
+            Log.e("SNViewModel", "Error al leer DB", e)
         }
     }
 
     fun cargarCargaAcademica() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // Esta y las demás funciones de carga ahora consultan la BD local.
                 val result = snRepository.getCargaAcademica()
                 cargaAcademica = jsonFormat.decodeFromString(result)
             } catch (e: Exception) {
@@ -236,39 +254,56 @@ class SNViewModel(
         }
     }
 
+    fun cargarSesionGuardada(context: Context) {
+        val shared = context.getSharedPreferences("sesion_usuario", Context.MODE_PRIVATE)
+        val m = shared.getString("matricula", "") ?: ""
+        val p = shared.getString("password", "") ?: ""
+        
+        if (m.isNotBlank() && p.isNotBlank()) {
+            matriculaInput = m
+            passwordInput = p
+            accesoSN(context)
+        }
+    }
+
+    private fun tieneInternet(context: Context): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork ?: return false
+        val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
+
+        return when {
+            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> true
+            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> true
+            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> true
+            else -> false
+        }
+    }
+
+    private fun guardarDatosSesion(context: Context, matricula: String, password: String){
+        val shared = context.getSharedPreferences("sesion_usuario", Context.MODE_PRIVATE)
+        with(shared.edit()){
+            putString("matricula", matricula)
+            putString("password", password)
+            apply()
+        }
+    }
+
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val application = (this[APPLICATION_KEY] as SICENETApplication)
                 val snRepository = application.container.snRepository
-                // 7. Se provee la instancia de WorkManager al ViewModel.
                 val workManager = WorkManager.getInstance(application)
-                SNViewModel(snRepository = snRepository, workManager = workManager)
+                SNViewModel(
+                    snRepository = snRepository, 
+                    workManager = workManager,
+                    application = application
+                )
             }
         }
     }
 }
 
-@Serializable
-data class DatosAlumno(
-    val fechaReins: String = "",
-    val modEducativo: Int = 0,
-    val adeudo: Boolean = false,
-    val urlFoto: String = "",
-    val adeudoDescripcion: String = "",
-    val inscrito: Boolean = false,
-    val estatus: String = "",
-    val semActual: Int = 0,
-    val cdtosAcumulados: Int = 0,
-    val cdtosActuales: Int = 0,
-    val especialidad: String = "",
-    val carrera: String = "",
-    val lineamiento: Int = 0,
-    val nombre: String = "",
-    val matricula: String = ""
-)
-
-// Data classes for new features
 @Serializable
 data class CargaAcademicaItem(
     val Semipresencial: String,
