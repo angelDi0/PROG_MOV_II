@@ -35,11 +35,11 @@ class DBLocalSNRepository(
     private val daoUnidad: DaoCalificacionesUnidad,
     private val daoFinal: DaoCalificacionesFinal
 ) : SNRepository {
-    
+
     override suspend fun acceso(m: String, p: String): String = "SUCCESS"
 
     override suspend fun datos_alumno(): String {
-        val estudiante = daoEstudiante.getPerfilSync()
+        val estudiante = daoEstudiante.getPerfil()
         return if (estudiante != null) Json.encodeToString(estudiante) else ""
     }
 

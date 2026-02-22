@@ -32,7 +32,7 @@ import kotlinx.serialization.json.Json
 import java.util.UUID
 
 
-// 1. Se añade el estado Syncing y se ajusta Success para ser más genérico.
+// 1. Estados de la UI
 sealed interface SNUiState {
     data class Success(val message: String) : SNUiState
     object Error : SNUiState
@@ -75,7 +75,7 @@ class SNViewModel(
     var matriculaInput by mutableStateOf("")
     var passwordInput by mutableStateOf("")
 
-    // Cambiamos alumnoData para que use la entidad Estudiante
+    // Estado del alumno usando la entidad de Room
     var alumnoData by mutableStateOf<Estudiante?>(null)
         private set
 
@@ -108,15 +108,19 @@ class SNViewModel(
         viewModelScope.launch {
             if (!tieneInternet(context)) {
                 Log.d("ISV", "No tiene internet!!")
-                snUiState = SNUiState.Syncing("Sin conexión. Cargando datos locales...")
-                val datoslocales = LocalSNRepository.datos_alumno()
-
-                if(datoslocales.isNotBlank()){
-                    alumnoData = jsonFormat.decodeFromString(datoslocales)
-                    snUiState = SNUiState.Success("Datos locales cargados.")
-                    currentScreen = AppScreen.Home
-
-                } else {
+                snUiState = SNUiState.Syncing("Modo Offline: Cargando datos locales...")
+                
+                try {
+                    val datoslocales = LocalSNRepository.datos_alumno()
+                    if(datoslocales.isNotBlank()){
+                        alumnoData = jsonFormat.decodeFromString<Estudiante>(datoslocales)
+                        snUiState = SNUiState.Success("Datos locales cargados.")
+                        currentScreen = AppScreen.Home
+                    } else {
+                        snUiState = SNUiState.Error
+                    }
+                } catch (e: Exception) {
+                    Log.e("SNViewModel", "Error en login offline", e)
                     snUiState = SNUiState.Error
                 }
             } else {
@@ -162,16 +166,16 @@ class SNViewModel(
                             }
                         }
                         WorkInfo.State.FAILED -> {
-                            Log.w("SNViewModel", "Sincronización falló. Cargando locales.")
+                            Log.w("SNViewModel", "Sincronización falló. Intentando cargar locales.")
                             cargarDatosAlumno()
                             if (alumnoData != null) {
-                                snUiState = SNUiState.Success("Mostrando datos locales.")
+                                snUiState = SNUiState.Success("Mostrando datos de la última sesión.")
                                 currentScreen = AppScreen.Home
                             } else {
                                 snUiState = SNUiState.Error
                             }
                         }
-                        else -> { /* En progreso... */ }
+                        else -> { /* Procesando... */ }
                     }
                 }
             }
@@ -203,14 +207,8 @@ class SNViewModel(
 
     suspend fun cargarDatosAlumno() {
         try {
-            val dao = application.container.database.perfilDao()
-            val estudianteLocal = withContext(Dispatchers.IO) {
-                dao.getPerfilSync()
-            }
-
-            if (estudianteLocal != null) {
-                alumnoData = estudianteLocal
-            }
+            val result = snRepository.datos_alumno()
+            alumnoData = jsonFormat.decodeFromString(result)
         } catch (e: Exception) {
             Log.e("SNViewModel", "Error al leer DB", e)
         }
@@ -273,16 +271,13 @@ class SNViewModel(
     }
 
     private fun tieneInternet(context: Context): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return false
-        val activeNetwork = connectivityManager.getNetworkCapabilities(network) ?: return false
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
 
-        return when {
-            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> true
-            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> true
-            activeNetwork.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> true
-            else -> false
-        }
+        return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+               caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+               caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 
     private fun guardarDatosSesion(context: Context, matricula: String, password: String){
@@ -299,22 +294,28 @@ class SNViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as SICENETApplication)
                 val container = application.container
-                val snRepository = application.container.snRepository
+                val snRepository = container.snRepository
 
                 val database = container.database
                 val perfilDao = database.perfilDao()
                 val kardexDao = database.kardexDao()
-                val cargaAcademica = database.cargaAcademicaDao()
-                val cargaUnidad = database.calificacionesUnidadDao()
-                val cargaFinal = database.calificacionesFinalDao()
+                val cargaAcademicaDao = database.cargaAcademicaDao()
+                val cargaUnidadDao = database.calificacionesUnidadDao()
+                val cargaFinalDao = database.calificacionesFinalDao()
 
-                val snLocalRepository = DBLocalSNRepository(perfilDao, kardexDao, cargaAcademica, cargaUnidad, cargaFinal)
+                val snLocalRepository = DBLocalSNRepository(
+                    perfilDao, 
+                    kardexDao, 
+                    cargaAcademicaDao, 
+                    cargaUnidadDao, 
+                    cargaFinalDao
+                )
 
                 val workManager = WorkManager.getInstance(application)
                 SNViewModel(
                     snRepository = snRepository, 
-                    workManager = workManager,
                     LocalSNRepository = snLocalRepository,
+                    workManager = workManager,
                     application = application
                 )
             }

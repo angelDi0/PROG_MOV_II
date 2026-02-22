@@ -16,8 +16,8 @@ interface DaoEstudiante {
     @Query("SELECT * FROM perfil_estudiante LIMIT 1")
     fun getPerfil(): Flow<Estudiante>
 
-    @Query("SELECT * FROM perfil_estudiante LIMIT 1")
-    suspend fun getPerfilSync(): Estudiante?
+    @Query("SELECT * FROM perfil_estudiante WHERE matricula = :matricula")
+    fun getPerfil(matricula: String): Flow<Estudiante>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarDatosPerfil(perfil: Estudiante)
