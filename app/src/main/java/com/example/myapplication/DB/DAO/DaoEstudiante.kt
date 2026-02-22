@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DaoEstudiante {
     @Query("SELECT * FROM perfil_estudiante LIMIT 1")
-    fun getPerfil(): Flow<Estudiante>
+    suspend fun getPerfilSync(): Estudiante?
 
     @Query("SELECT * FROM perfil_estudiante WHERE matricula = :matricula")
-    fun getPerfil(matricula: String): Flow<Estudiante>
+    suspend fun getPerfil(matricula: String): Estudiante?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarDatosPerfil(perfil: Estudiante)

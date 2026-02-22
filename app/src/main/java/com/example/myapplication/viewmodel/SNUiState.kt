@@ -109,7 +109,7 @@ class SNViewModel(
             if (!tieneInternet(context)) {
                 Log.d("ISV", "No tiene internet!!")
                 snUiState = SNUiState.Syncing("Modo Offline: Cargando datos locales...")
-                
+
                 try {
                     val datoslocales = LocalSNRepository.datos_alumno()
                     if(datoslocales.isNotBlank()){
@@ -262,7 +262,7 @@ class SNViewModel(
         val shared = context.getSharedPreferences("sesion_usuario", Context.MODE_PRIVATE)
         val m = shared.getString("matricula", "") ?: ""
         val p = shared.getString("password", "") ?: ""
-        
+
         if (m.isNotBlank() && p.isNotBlank()) {
             matriculaInput = m
             passwordInput = p
@@ -276,8 +276,8 @@ class SNViewModel(
         val caps = cm.getNetworkCapabilities(network) ?: return false
 
         return caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-               caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-               caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
     }
 
     private fun guardarDatosSesion(context: Context, matricula: String, password: String){
@@ -304,16 +304,16 @@ class SNViewModel(
                 val cargaFinalDao = database.calificacionesFinalDao()
 
                 val snLocalRepository = DBLocalSNRepository(
-                    perfilDao, 
-                    kardexDao, 
-                    cargaAcademicaDao, 
-                    cargaUnidadDao, 
+                    perfilDao,
+                    kardexDao,
+                    cargaAcademicaDao,
+                    cargaUnidadDao,
                     cargaFinalDao
                 )
 
                 val workManager = WorkManager.getInstance(application)
                 SNViewModel(
-                    snRepository = snRepository, 
+                    snRepository = snRepository,
                     LocalSNRepository = snLocalRepository,
                     workManager = workManager,
                     application = application

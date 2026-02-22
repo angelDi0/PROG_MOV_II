@@ -39,7 +39,8 @@ class DBLocalSNRepository(
     override suspend fun acceso(m: String, p: String): String = "SUCCESS"
 
     override suspend fun datos_alumno(): String {
-        val estudiante = daoEstudiante.getPerfil()
+        // CORRECCIÓN: Usar getPerfilSync() que es 'suspend'
+        val estudiante = daoEstudiante.getPerfilSync()
         return if (estudiante != null) Json.encodeToString(estudiante) else ""
     }
 

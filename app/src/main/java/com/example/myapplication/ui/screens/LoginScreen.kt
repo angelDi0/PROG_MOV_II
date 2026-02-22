@@ -1,4 +1,3 @@
-// Archivo: app/src/main/java/com/example/marsphotos/ui/screens/LoginScreen.kt
 package com.example.myapplication.ui.screens
 
 import androidx.compose.foundation.layout.*
@@ -15,9 +14,15 @@ import com.example.myapplication.viewmodel.SNViewModel
 @Composable
 fun LoginScreen(
     viewModel: SNViewModel,
+    onLoginSuccess: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
+
+    if (viewModel.snUiState is SNUiState.Success) {
+        LaunchedEffect(Unit) {
+            onLoginSuccess()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -26,7 +31,13 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "Inicio de Sesión SICENET", style = MaterialTheme.typography.headlineMedium)
+
+        val context = LocalContext.current
+
+        Text(
+            text = "Inicio de Sesión SICENET",
+            style = MaterialTheme.typography.headlineMedium
+        )
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -54,8 +65,12 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth(),
             enabled = viewModel.snUiState !is SNUiState.Loading
         ) {
+
             if (viewModel.snUiState is SNUiState.Loading) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
             } else {
                 Text("Entrar")
             }
@@ -63,7 +78,10 @@ fun LoginScreen(
 
         if (viewModel.snUiState is SNUiState.Error) {
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "Error: Verifica tus credenciales", color = MaterialTheme.colorScheme.error)
+            Text(
+                text = "Error: Verifica tus credenciales",
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

@@ -22,14 +22,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.myapplication.viewmodel.SNViewModel
 import com.example.myapplication.DB.Entidad.Estudiante
+import com.example.myapplication.viewmodel.SNViewModel
 import kotlinx.serialization.InternalSerializationApi
 
 @OptIn(InternalSerializationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: SNViewModel,
+    onNavigateToMenu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LaunchedEffect(Unit) { viewModel.cargarDatosAlumno() }
@@ -133,6 +134,20 @@ fun HomeScreen(
                         Text(text = alumno.fechaReins, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = { onNavigateToMenu() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(55.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Default.Menu, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Ir al Menú")
             }
         }
     }
