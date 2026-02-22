@@ -42,7 +42,7 @@ fun MenuScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 🔷 CARDS DEL MENÚ
+        
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
             MenuCard(
@@ -84,7 +84,7 @@ fun MenuScreen(
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // 🔷 CONTENIDO DINÁMICO
+
         when (currentScreen) {
             AppScreen.CargaAcademica -> CargaAcademicaTable(viewModel.cargaAcademica)
             AppScreen.Kardex -> KardexTable(viewModel.kardex)
@@ -149,9 +149,6 @@ fun MenuCard(
     }
 }
 
-/* ========================= */
-/* 🔷 TABLAS ESTILIZADAS */
-/* ========================= */
 
 @Composable
 fun CargaAcademicaTable(lista: List<CargaAcademicaItem>) {
@@ -197,17 +194,52 @@ fun KardexTable(lista: List<KardexItem>) {
 @Composable
 fun CalificacionesUnidadTable(lista: List<CalificacionesUnidadItem>) {
 
-    SectionTitle("Calificaciones por Unidad")
-
     if (lista.isEmpty()) {
-        EmptyState()
+        Text("No hay datos disponibles")
         return
     }
 
     lista.forEach { item ->
-        InfoCard {
-            Text(item.Materia, fontWeight = FontWeight.Bold)
-            Text("Grupo: ${item.Grupo}")
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+
+                Text(item.Materia, fontWeight = FontWeight.Bold)
+                Text("Grupo: ${item.Grupo}")
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Crear lista dinámica de unidades
+                val unidades = listOf(
+                    item.C1, item.C2, item.C3, item.C4, item.C5,
+                    item.C6, item.C7, item.C8, item.C9, item.C10,
+                    item.C11, item.C12, item.C13
+                )
+
+                //Filtrar solo las que NO son null
+                val unidadesActivas = unidades
+                    .mapIndexed { index, calificacion ->
+                        index + 1 to calificacion
+                    }
+                    .filter { it.second != null }
+
+                // Mostrar total real
+                Text(
+                    text = "Total de unidades: ${unidadesActivas.size}",
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Mostrar dinámicamente cada unidad
+                unidadesActivas.forEach { (numero, calificacion) ->
+                    Text("Unidad $numero: $calificacion")
+                }
+            }
         }
     }
 }
@@ -232,9 +264,6 @@ fun CalificacionesFinalesTable(lista: List<CalificacionFinalItem>) {
     }
 }
 
-/* ========================= */
-/* 🔷 COMPONENTES REUTILIZABLES */
-/* ========================= */
 
 @Composable
 fun SectionTitle(text: String) {
