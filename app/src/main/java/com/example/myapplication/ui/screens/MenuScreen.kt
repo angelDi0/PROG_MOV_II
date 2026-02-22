@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.screens
 
+import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.viewmodel.*
 import androidx.compose.material3.*
+import androidx.compose.ui.platform.LocalContext
 import com.example.myapplication.DB.Entidad.CalificacionFinalItem
 import com.example.myapplication.DB.Entidad.CalificacionesUnidadItem
 import com.example.myapplication.DB.Entidad.CargaAcademica
@@ -30,6 +32,7 @@ fun MenuScreen(
 ) {
 
     val currentScreen = viewModel.currentScreen
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -56,7 +59,7 @@ fun MenuScreen(
                 color = Color(0xFFE3F2FD),
                 iconColor = Color(0xFF1976D2)
             ) {
-                viewModel.onMenuOptionSelected(AppScreen.CargaAcademica)
+                viewModel.onMenuOptionSelected(AppScreen.CargaAcademica, context)
             }
 
             MenuCard(
@@ -65,7 +68,7 @@ fun MenuScreen(
                 color = Color(0xFFF3E5F5),
                 iconColor = Color(0xFF7B1FA2)
             ) {
-                viewModel.onMenuOptionSelected(AppScreen.Kardex)
+                viewModel.onMenuOptionSelected(AppScreen.Kardex, context)
             }
 
             MenuCard(
@@ -74,7 +77,7 @@ fun MenuScreen(
                 color = Color(0xFFFFF3E0),
                 iconColor = Color(0xFFF57C00)
             ) {
-                viewModel.onMenuOptionSelected(AppScreen.CalificacionesUnidad)
+                viewModel.onMenuOptionSelected(AppScreen.CalificacionesUnidad, context)
             }
 
             MenuCard(
@@ -83,7 +86,7 @@ fun MenuScreen(
                 color = Color(0xFFE8F5E9),
                 iconColor = Color(0xFF388E3C)
             ) {
-                viewModel.onMenuOptionSelected(AppScreen.CalificacionesFinales)
+                viewModel.onMenuOptionSelected(AppScreen.CalificacionesFinales, context)
             }
         }
 

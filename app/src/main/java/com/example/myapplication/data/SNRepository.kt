@@ -104,8 +104,8 @@ class NetworSNRepository(
 
     override suspend fun getKardex(l: Int): String {
         return try {
+            Log.d("KAR", "LINEMAMIENTO: $l")
             val res = snApiService.getKardex(KardexItem.format(l).toRequestBody())
-            // CORRECCIÓN: Leer el string UNA SOLA VEZ y guardarlo en una variable
             val xmlString = res.string() 
             Log.d("KAR", "Respuesta recibida: $xmlString")
             

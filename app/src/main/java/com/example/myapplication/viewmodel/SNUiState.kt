@@ -25,16 +25,15 @@ import com.example.myapplication.DB.Entidad.CalificacionesUnidadItem
 import com.example.myapplication.DB.Entidad.CargaAcademica
 import com.example.myapplication.DB.Entidad.Estudiante
 import com.example.myapplication.DB.Entidad.KardexItem
-import com.example.myapplication.DB.Entidad.KardexResponse
 import com.example.myapplication.SICENETApplication
 import com.example.myapplication.worker.GuardarDatosPerfilWorker
+import com.example.myapplication.worker.SyncDatosWorker
 import com.example.myapplication.worker.SyncProfileDataWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.decodeFromJsonElement
 import java.util.UUID
 
 
@@ -108,12 +107,11 @@ class SNViewModel(
         passwordInput = newValue
     }
 
-    // FUNCION CUANDO VAMOS A INICIAR SESION
+    // FUNCION PARA INICIO DE SESION
     fun accesoSN(context: Context) {
         if (matriculaInput.isBlank() || passwordInput.isBlank()) return
 
         viewModelScope.launch {
-            //PREGUNTAMOS SI HAY INTERNET
             if (!tieneInternet(context)) {
                 Log.d("ISV", "No tiene internet!!")
                 snUiState = SNUiState.Syncing("Modo Offline: Cargando datos locales...")
@@ -137,7 +135,6 @@ class SNViewModel(
         }
     }
 
-    // FUNCION PARA CREAR EL WORK CON LOS WORKERS CREADO APARTE
     private fun iniciarSincronizacionRemota(context: Context) {
         snUiState = SNUiState.Syncing("Autenticando y sincronizando...")
 
@@ -191,14 +188,88 @@ class SNViewModel(
         }
     }
 
-    fun onMenuOptionSelected(screen: AppScreen) {
+    fun onMenuOptionSelected(screen: AppScreen, context: Context) {
         currentScreen = screen
-        when (screen) {
-            AppScreen.CargaAcademica -> if (cargaAcademica.isEmpty()) cargarCargaAcademica()
-            AppScreen.Kardex -> if (kardex.isEmpty()) cargarKardex()
-            AppScreen.CalificacionesUnidad -> if (calificacionesUnidad.isEmpty()) cargarCalificacionesUnidad()
-            AppScreen.CalificacionesFinales -> if (calificacionesFinales.isEmpty()) cargarCalificacionesFinales()
-            else -> { }
+
+        if(!tieneInternet(context)){
+            snUiState = SNUiState.Syncing("Modo Offline: Cargando datos locales...")
+            cargarDesdeLocal(screen)
+        } else {
+            dispararSincronizacion(screen)
+            cargarDesdeRemoto(screen)
+        }
+    }
+    
+    private fun cargarDesdeLocal(screen: AppScreen){
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val result = when(screen) {
+                    AppScreen.CargaAcademica -> LocalSNRepository.getCargaAcademica()
+                    AppScreen.Kardex -> LocalSNRepository.getKardex(alumnoData?.lineamiento ?: 0)
+                    AppScreen.CalificacionesUnidad -> LocalSNRepository.getCalificacionesUnidad()
+                    AppScreen.CalificacionesFinales -> LocalSNRepository.getCalificacionesFinales()
+                    else -> ""
+                }
+                
+                if (result.isNotBlank()) {
+                    withContext(Dispatchers.Main) {
+                        try {
+                            when(screen) {
+                                AppScreen.Kardex -> {
+                                    kardex = if (result.trim().startsWith("[")) {
+                                        jsonFormat.decodeFromString<List<KardexItem>>(result)
+                                    } else {
+                                        jsonFormat.decodeFromString<KardexResponse>(result).lstKardex
+                                    }
+                                }
+                                AppScreen.CargaAcademica -> cargaAcademica = jsonFormat.decodeFromString<List<CargaAcademica>>(result)
+                                AppScreen.CalificacionesUnidad -> calificacionesUnidad = jsonFormat.decodeFromString<List<CalificacionesUnidadItem>>(result)
+                                AppScreen.CalificacionesFinales -> calificacionesFinales = jsonFormat.decodeFromString<List<CalificacionFinalItem>>(result)
+                                else -> {}
+                            }
+                            snUiState = SNUiState.Success("Datos cargados correctamente.")
+                        } catch (e: Exception) {
+                            Log.e("SNViewModel", "Error al decodificar locales de $screen", e)
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                         snUiState = SNUiState.Error
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SNViewModel", "Error cargando locales", e)
+            }
+        }
+    }
+    
+    private fun cargarDesdeRemoto(screen: AppScreen){
+        val tipo = when(screen) {
+            AppScreen.CargaAcademica -> "CARGA_ACADEMICA"
+            AppScreen.Kardex -> "KARDEX"
+            AppScreen.CalificacionesUnidad -> "CALIF_UNIDAD"
+            AppScreen.CalificacionesFinales -> "CALIF_FINAL"
+            else -> ""
+        }
+
+        viewModelScope.launch {
+            workManager.getWorkInfosForUniqueWorkFlow("sync_$tipo").collect { workInfos ->
+                val workInfo = workInfos.firstOrNull() ?: return@collect
+
+                when (workInfo.state) {
+                    WorkInfo.State.RUNNING -> {
+                        snUiState = SNUiState.Syncing("Sincronizando con el servidor...")
+                    }
+                    WorkInfo.State.SUCCEEDED -> {
+                        // El Worker ya guardó en la DB, ahora cargamos de local para mostrar
+                        cargarDesdeLocal(screen)
+                    }
+                    WorkInfo.State.FAILED -> {
+                        snUiState = SNUiState.Error
+                    }
+                    else -> {}
+                }
+            }
         }
     }
 
@@ -208,56 +279,6 @@ class SNViewModel(
             alumnoData = jsonFormat.decodeFromString(result)
         } catch (e: Exception) {
             Log.e("SNViewModel", "Error al leer DB", e)
-        }
-    }
-
-    fun cargarCargaAcademica() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val result = snRepository.getCargaAcademica()
-                cargaAcademica = jsonFormat.decodeFromString(result)
-            } catch (e: Exception) {
-                Log.e("SNViewModel", "Error al cargar la carga académica", e)
-            }
-        }
-    }
-
-    fun cargarKardex() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val l = alumnoData?.lineamiento ?: 0
-                val result = snRepository.getKardex(l)
-                Log.d("SNViewModel", "Respuesta Kardex: $result")
-
-                val response = jsonFormat.decodeFromString<KardexResponse>(result)
-                kardex = response.lstKardex
-
-                Log.d("SNViewModel", "Kardex procesado: ${kardex.size} materias")
-            } catch (e: Exception) {
-                Log.e("SNViewModel", "Error al cargar el kardex", e)
-            }
-        }
-    }
-
-    fun cargarCalificacionesUnidad() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val result = snRepository.getCalificacionesUnidad()
-                calificacionesUnidad = jsonFormat.decodeFromString(result)
-            } catch (e: Exception) {
-                Log.e("SNViewModel", "Error al cargar calificaciones por unidad", e)
-            }
-        }
-    }
-
-    fun cargarCalificacionesFinales() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val result = snRepository.getCalificacionesFinales()
-                calificacionesFinales = jsonFormat.decodeFromString(result)
-            } catch (e: Exception) {
-                Log.e("SNViewModel", "Error al cargar calificaciones finales", e)
-            }
         }
     }
 
@@ -290,6 +311,26 @@ class SNViewModel(
             putString("password", password)
             apply()
         }
+    }
+
+    private fun dispararSincronizacion(screen: AppScreen) {
+        val tipo = when(screen) {
+            AppScreen.CargaAcademica -> "CARGA_ACADEMICA"
+            AppScreen.Kardex -> "KARDEX"
+            AppScreen.CalificacionesUnidad -> "CALIF_UNIDAD"
+            AppScreen.CalificacionesFinales -> "CALIF_FINAL"
+            else -> ""
+        }
+
+        val syncRequest = OneTimeWorkRequestBuilder<SyncDatosWorker>()
+            .setInputData(workDataOf(
+                "tipo_dato" to tipo,
+                "lineamiento" to (alumnoData?.lineamiento ?: 0)
+            ))
+            .build()
+
+        // Ejecutamos solo el SyncDatosWorker porque él mismo guarda en la DB
+        workManager.enqueueUniqueWork("sync_$tipo", ExistingWorkPolicy.KEEP, syncRequest)
     }
 
     companion object {
@@ -325,3 +366,6 @@ class SNViewModel(
         }
     }
 }
+
+@Serializable
+data class KardexResponse(val lstKardex: List<KardexItem>)

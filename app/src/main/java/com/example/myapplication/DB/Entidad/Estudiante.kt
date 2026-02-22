@@ -71,6 +71,7 @@ data class KardexItem(
 data class KardexResponse(
     val lstKardex: List<KardexItem>
 )
+
 @Entity(tableName = "calificaciones_unidad")
 @Serializable
 data class CalificacionesUnidadItem(

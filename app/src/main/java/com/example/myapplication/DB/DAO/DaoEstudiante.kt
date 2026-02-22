@@ -21,6 +21,7 @@ interface DaoEstudiante {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarDatosPerfil(perfil: Estudiante)
+
 }
 
 @Dao
@@ -30,6 +31,9 @@ interface DaoCargaAcademica {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarCargaAcademica(carga: CargaAcademica)
+
+    @Query("DELETE from carga_academica")
+    suspend fun eliminarTodo()
 }
 
 @Dao
@@ -39,6 +43,9 @@ interface DaoKardex {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarKardex(karde: KardexItem)
+
+    @Query("DELETE FROM kardex")
+    suspend fun eliminarTodo()
 }
 
 @Dao
@@ -48,6 +55,9 @@ interface DaoCalificacionesUnidad{
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarCalificacionesUnidad(calificaciones: CalificacionesUnidadItem)
+
+    @Query("DELETE from calificaciones_unidad")
+    suspend fun eliminarTodo()
 }
 
 @Dao
@@ -57,4 +67,7 @@ interface DaoCalificacionesFinal{
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarCalificacionFinal(calificacionfinal: CalificacionFinalItem)
+
+    @Query("DELETE from calificacion_final")
+    suspend fun eliminarTodo()
 }

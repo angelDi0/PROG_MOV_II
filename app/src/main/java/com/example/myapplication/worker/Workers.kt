@@ -5,169 +5,151 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.example.myapplication.DB.DAO.DaoCalificacionesFinal
 import com.example.myapplication.DB.Entidad.CalificacionFinalItem
 import com.example.myapplication.DB.Entidad.CalificacionesUnidadItem
 import com.example.myapplication.DB.Entidad.CargaAcademica
 import com.example.myapplication.DB.Entidad.Estudiante
 import com.example.myapplication.DB.Entidad.KardexItem
 import com.example.myapplication.SICENETApplication
+import com.example.myapplication.viewmodel.KardexResponse
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Constantes para la comunicación entre Workers
 private const val KEY_MATRICULA = "key_matricula"
 private const val KEY_PASSWORD = "key_password"
 private const val KEY_PROFILE_DATA = "key_profile_data"
 private const val KEY_SYNC_TIMESTAMP = "key_sync_timestamp"
-
-private const val KEY_RESULT_JSON  = "key_result_json"
 private const val TAG = "SyncWorkers"
 
 private val jsonParser = Json { ignoreUnknownKeys = true }
 
 /**
- * Primer Worker: Obtiene los datos del perfil y del alumno desde la API de SICENET.
+ * Worker para el perfil (Login)
  */
-class SyncProfileDataWorker(
-    ctx: Context,
-    params: WorkerParameters
-) : CoroutineWorker(ctx, params) {
-
+class SyncProfileDataWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
-        // Obtiene la matrícula y contraseña de los datos de entrada
         val matricula = inputData.getString(KEY_MATRICULA)
         val password = inputData.getString(KEY_PASSWORD)
-
-        if (matricula.isNullOrBlank() || password.isNullOrBlank()) {
-            Log.e(TAG, "Matrícula o contraseña no proporcionadas al Worker")
-            return Result.failure()
-        }
-
-        // Obtiene una instancia del repositorio desde la clase Application
+        if (matricula.isNullOrBlank() || password.isNullOrBlank()) return Result.failure()
+        
         val repository = (applicationContext as SICENETApplication).container.snRepository
-
         return try {
-            // LLAMADO DEL METODO ACCESO PARA ENTRAR A LA APLICACION
             val loginResult = repository.acceso(matricula, password)
-            if (loginResult.contains("ERROR", ignoreCase = true)){
-                Log.e(TAG, "Error de autenticación en SyncProfileDataWorker")
-                return Result.failure()
-            }
-
-            // obtiene datos del estudiante de la DB
+            if (loginResult.contains("ERROR", ignoreCase = true)) return Result.failure()
+            
             val profileData = repository.datos_alumno()
-
-            Log.d(TAG, "Datos del perfild de estudiante antes de ser mandadoL: $profileData")
-
             val timestamp = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
-
-            // mandamos los datos al siguiente worker
-            val outputData = workDataOf(
-                KEY_PROFILE_DATA to profileData,
-                KEY_SYNC_TIMESTAMP to timestamp
-            )
-
-            Result.success(outputData)
-        } catch (e: Exception) {
+            
+            Result.success(workDataOf(KEY_PROFILE_DATA to profileData, KEY_SYNC_TIMESTAMP to timestamp))
+        } catch (e: Exception) { 
             Log.e(TAG, "Error en SyncProfileDataWorker", e)
-            Result.failure()
+            Result.failure() 
         }
     }
 }
 
 /**
- * Segundo Worker: Guarda los datos del perfil en la base de datos local.
+ * Worker para guardar el perfil
  */
-class GuardarDatosPerfilWorker(
-    ctx: Context,
-    params: WorkerParameters
-) : CoroutineWorker(ctx, params) {
-
+class GuardarDatosPerfilWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
-        val profileData = inputData.getString(KEY_PROFILE_DATA)
-        val timestamp = inputData.getString(KEY_SYNC_TIMESTAMP)
-
-        if (profileData.isNullOrBlank() || timestamp.isNullOrBlank()) {
-            Log.e(TAG, "No se recibieron datos del perfil para guardar")
-            return Result.failure()
-        }
-
+        val profileData = inputData.getString(KEY_PROFILE_DATA) ?: return Result.failure()
         return try {
-
-            // SE RECUPERAN LOS DATOS DEL WORKER ANTERIOR
-
             val estudiante = jsonParser.decodeFromString<Estudiante>(profileData)
             val dao = (applicationContext as SICENETApplication).container.database.perfilDao()
-
-            Log.d("TAG", "Objetos parseados: $estudiante")
-
-            // LLAMADO DEL METODO DEL DAO PARA GUARDAR AL ESTUDIANTE
-
             dao.insertarDatosPerfil(estudiante)
-
-            Log.d(TAG, "Datos del perfil guardados en la base de datos local.")
-
-            // GUARDAMOS CUANDO FUE LA ULTIMA VEZ QUE SE CONSULTO A LA DB
-            val outputData = workDataOf(KEY_SYNC_TIMESTAMP to timestamp)
-
-            Result.success(outputData)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error en SaveProfileDataWorker", e)
-            Result.failure()
+            Result.success()
+        } catch (e: Exception) { 
+            Log.e(TAG, "Error en GuardarDatosPerfilWorker", e)
+            Result.failure() 
         }
     }
 }
 
-/*
-/ WORKER PAR SU LLAMADO DE LOS OTROS METODOSM, YA SEA PARA LOS DATOS DE LA DB LOCAL O DE LA API DE CARGA ACADEMICA
+/**
+ * Worker TODO-EN-UNO: Descarga y guarda solo si hay cambios.
  */
-
 class SyncDatosWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val tipo = inputData.getString("tipo_dato") ?: return Result.failure()
-        val repo = (applicationContext as SICENETApplication).container.snRepository
+        val lineamiento = inputData.getInt("lineamiento", 0)
+
+        val app = (applicationContext as SICENETApplication)
+        val repo = app.container.snRepository
+        val db = app.container.database
 
         return try {
+            // 1. Descarga del servidor
             val res = when(tipo) {
-                "KARDEX" -> repo.getKardex()
+                "KARDEX" -> repo.getKardex(lineamiento)
                 "CALIF_UNIDAD" -> repo.getCalificacionesUnidad()
                 "CALIF_FINAL" -> repo.getCalificacionesFinales()
+                "CARGA_ACADEMICA" -> repo.getCargaAcademica()
                 else -> ""
             }
-            Result.success(workDataOf(KEY_RESULT_JSON to res, "tipo_dato" to tipo))
-        } catch (e: Exception) { Result.failure() }
-    }
-}
 
-class SaveDataWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
-    override suspend fun doWork(): Result {
-        val datos = inputData.getString(KEY_RESULT_JSON) ?: return Result.failure()
-        val tipo = inputData.getString("tipo_dato") ?: return Result.failure()
-        val db = (applicationContext as SICENETApplication).container.database
+            if (res.isBlank()) return Result.failure()
 
-        return try {
+            // 2. Lógica de comparación y guardado
             when(tipo) {
                 "KARDEX" -> {
-                    val items = jsonParser.decodeFromString<List<KardexItem>>(datos)
-                    items.forEach { db.kardexDao().insertarKardex(it) }
+                    val response = if (res.trim().startsWith("[")) {
+                        KardexResponse(jsonParser.decodeFromString<List<KardexItem>>(res))
+                    } else {
+                        jsonParser.decodeFromString<KardexResponse>(res)
+                    }
+
+                    // OBTENER DATOS ACTUALES DE LA DB
+                    val datosLocales = db.kardexDao().getKardexSync()
+
+                    // SOLO GUARDAR SI HAY CAMBIOS
+                    if (response.lstKardex != datosLocales) {
+                        Log.d(TAG, "Cambios detectados en KARDEX. Actualizando...")
+                        db.kardexDao().eliminarTodo() // Opcional: limpiar antes de insertar
+                        response.lstKardex.forEach { db.kardexDao().insertarKardex(it) }
+                    } else {
+                        Log.d(TAG, "KARDEX sin cambios. Omitiendo guardado.")
+                    }
                 }
+
                 "CALIF_UNIDAD" -> {
-                    val items = jsonParser.decodeFromString<List<CalificacionesUnidadItem>>(datos)
-                    items.forEach { db.calificacionesUnidadDao().insertarCalificacionesUnidad(it) }
+                    val itemsNuevos = jsonParser.decodeFromString<List<CalificacionesUnidadItem>>(res)
+                    val itemsLocales = db.calificacionesUnidadDao().getCalificacionesUnidadSync()
+
+                    if (itemsNuevos != itemsLocales) {
+                        Log.d(TAG, "Cambios en CALIF_UNIDAD. Actualizando...")
+                        db.calificacionesUnidadDao().eliminarTodo()
+                        itemsNuevos.forEach { db.calificacionesUnidadDao().insertarCalificacionesUnidad(it) }
+                    }
                 }
+
                 "CALIF_FINAL" -> {
-                    val items = jsonParser.decodeFromString<List<CalificacionFinalItem>>(datos)
-                    items.forEach { db.calificacionesFinalDao().insertarCalificacionFinal(it) }
+                    val itemsNuevos = jsonParser.decodeFromString<List<CalificacionFinalItem>>(res)
+                    val itemsLocales = db.calificacionesFinalDao().getCalificacionesFinalesSync()
+
+                    if (itemsNuevos != itemsLocales) {
+                        db.calificacionesFinalDao().eliminarTodo()
+                        itemsNuevos.forEach { db.calificacionesFinalDao().insertarCalificacionFinal(it) }
+                    }
                 }
+
                 "CARGA_ACADEMICA" -> {
-                    val items = jsonParser.decodeFromString<List<CargaAcademica>>(datos)
-                    items.forEach{ db.cargaAcademicaDao().insertarCargaAcademica(it)}
+                    val itemsNuevos = jsonParser.decodeFromString<List<CargaAcademica>>(res)
+                    val itemsLocales = db.cargaAcademicaDao().getCargaAcademicaSync()
+
+                    if (itemsNuevos != itemsLocales) {
+                        db.cargaAcademicaDao().eliminarTodo()
+                        itemsNuevos.forEach { db.cargaAcademicaDao().insertarCargaAcademica(it) }
+                    }
                 }
             }
+
             Result.success()
-        } catch (e: Exception) { Result.failure() }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sincronizando $tipo", e)
+            Result.failure()
+        }
     }
 }

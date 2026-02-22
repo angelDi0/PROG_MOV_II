@@ -16,7 +16,7 @@ import com.example.myapplication.DB.Entidad.Estudiante
 import com.example.myapplication.DB.Entidad.KardexItem
 
 @Database(entities = [Estudiante::class, CargaAcademica::class, KardexItem::class, CalificacionesUnidadItem::class, CalificacionFinalItem::class],
-    version = 5, exportSchema = false)
+    version = 6, exportSchema = false)
 abstract class AppDataBase : RoomDatabase(){
     abstract fun perfilDao(): DaoEstudiante
     abstract fun cargaAcademicaDao(): DaoCargaAcademica
