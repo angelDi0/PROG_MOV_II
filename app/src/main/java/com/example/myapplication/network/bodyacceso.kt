@@ -1,7 +1,5 @@
 package com.example.myapplication.network
 
-import com.example.myapplication.viewmodel.CargaAcademicaItem
-import com.example.myapplication.viewmodel.KardexItem
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.http.Body
@@ -62,7 +60,7 @@ val KardexItem =
         <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
           <soap:Body>
             <getAllKardexConPromedioByAlumno xmlns="http://tempuri.org/">
-              <aluLineamiento>unsignedByte</aluLineamiento>
+              <aluLineamiento>%d</aluLineamiento>
             </getAllKardexConPromedioByAlumno>
           </soap:Body>
         </soap:Envelope>

@@ -72,7 +72,7 @@ fun PantallaPrueba(viewModel: SNViewModel, modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = { viewModel.resetToLogin() },
+            onClick = { },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Cerrar Sesión")

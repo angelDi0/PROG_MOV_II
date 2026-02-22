@@ -20,7 +20,12 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.marsphotos.data.DBLocalSNRepository
 import com.example.marsphotos.data.SNRepository
+import com.example.myapplication.DB.Entidad.CalificacionFinalItem
+import com.example.myapplication.DB.Entidad.CalificacionesUnidadItem
+import com.example.myapplication.DB.Entidad.CargaAcademica
 import com.example.myapplication.DB.Entidad.Estudiante
+import com.example.myapplication.DB.Entidad.KardexItem
+import com.example.myapplication.DB.Entidad.KardexResponse
 import com.example.myapplication.SICENETApplication
 import com.example.myapplication.worker.GuardarDatosPerfilWorker
 import com.example.myapplication.worker.SyncProfileDataWorker
@@ -29,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import java.util.UUID
 
 
@@ -79,7 +85,7 @@ class SNViewModel(
     var alumnoData by mutableStateOf<Estudiante?>(null)
         private set
 
-    var cargaAcademica by mutableStateOf<List<CargaAcademicaItem>>(emptyList())
+    var cargaAcademica by mutableStateOf<List<CargaAcademica>>(emptyList())
         private set
     var kardex by mutableStateOf<List<KardexItem>>(emptyList())
         private set
@@ -102,10 +108,12 @@ class SNViewModel(
         passwordInput = newValue
     }
 
+    // FUNCION CUANDO VAMOS A INICIAR SESION
     fun accesoSN(context: Context) {
         if (matriculaInput.isBlank() || passwordInput.isBlank()) return
 
         viewModelScope.launch {
+            //PREGUNTAMOS SI HAY INTERNET
             if (!tieneInternet(context)) {
                 Log.d("ISV", "No tiene internet!!")
                 snUiState = SNUiState.Syncing("Modo Offline: Cargando datos locales...")
@@ -129,6 +137,7 @@ class SNViewModel(
         }
     }
 
+    // FUNCION PARA CREAR EL WORK CON LOS WORKERS CREADO APARTE
     private fun iniciarSincronizacionRemota(context: Context) {
         snUiState = SNUiState.Syncing("Autenticando y sincronizando...")
 
@@ -193,18 +202,6 @@ class SNViewModel(
         }
     }
 
-    fun resetToLogin() {
-        snUiState = SNUiState.Idle
-        currentScreen = AppScreen.Login
-        matriculaInput = ""
-        passwordInput = ""
-        alumnoData = null
-        cargaAcademica = emptyList()
-        kardex = emptyList()
-        calificacionesUnidad = emptyList()
-        calificacionesFinales = emptyList()
-    }
-
     suspend fun cargarDatosAlumno() {
         try {
             val result = snRepository.datos_alumno()
@@ -228,8 +225,14 @@ class SNViewModel(
     fun cargarKardex() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val result = snRepository.getKardex()
-                kardex = jsonFormat.decodeFromString(result)
+                val l = alumnoData?.lineamiento ?: 0
+                val result = snRepository.getKardex(l)
+                Log.d("SNViewModel", "Respuesta Kardex: $result")
+
+                val response = jsonFormat.decodeFromString<KardexResponse>(result)
+                kardex = response.lstKardex
+
+                Log.d("SNViewModel", "Kardex procesado: ${kardex.size} materias")
             } catch (e: Exception) {
                 Log.e("SNViewModel", "Error al cargar el kardex", e)
             }
@@ -322,70 +325,3 @@ class SNViewModel(
         }
     }
 }
-
-@Serializable
-data class CargaAcademicaItem(
-    val Semipresencial: String,
-    val Observaciones: String,
-    val Docente: String,
-    val clvOficial: String,
-    val Sabado: String,
-    val Viernes: String,
-    val Jueves: String,
-    val Miercoles: String,
-    val Martes: String,
-    val Lunes: String,
-    val EstadoMateria: String,
-    val CreditosMateria: Int,
-    val Materia: String,
-    val Grupo: String,
-)
-
-@Serializable
-data class KardexItem(
-    val S3: String? = null,
-    val P3: String? = null,
-    val A3: String? = null,
-    val ClvMat: String,
-    val ClvOfiMat: String,
-    val Materia: String,
-    val Cdts: Int,
-    val Calif: Int,
-    val Acred: String,
-    val S1: String? = null,
-    val P1: String? = null,
-    val A1: String? = null,
-    val S2: String? = null,
-    val P2: String? = null,
-    val A2: String? = null,
-)
-
-@Serializable
-data class CalificacionesUnidadItem(
-    val Observaciones: String,
-    val C13: String? = null,
-    val C12: String? = null,
-    val C11: String? = null,
-    val C10: String? = null,
-    val C9: String? = null,
-    val C8: String? = null,
-    val C7: String? = null,
-    val C6: String? = null,
-    val C5: String? = null,
-    val C4: String? = null,
-    val C3: String? = null,
-    val C2: String? = null,
-    val C1: String? = null,
-    val UnidadesActivas: String,
-    val Materia: String,
-    val Grupo: String,
-)
-
-@Serializable
-data class CalificacionFinalItem(
-    val calif: Int,
-    val acred: String,
-    val grupo: String,
-    val materia: String,
-    val Observaciones: String,
-)

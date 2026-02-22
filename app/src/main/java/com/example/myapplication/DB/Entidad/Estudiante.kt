@@ -30,7 +30,7 @@ data class Estudiante(
 @Entity(tableName = "carga_academica")
 @Serializable
 data class CargaAcademica(
-    @PrimaryKey val index: Int = 0,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val Semipresencial: String = "",
     val Observaciones: String = "",
     val Docente: String = "",
@@ -50,51 +50,54 @@ data class CargaAcademica(
 @Entity(tableName = "kardex")
 @Serializable
 data class KardexItem(
-    @PrimaryKey val index: Int = 0,
-    val S3: String = "",
-    val P3: String = "",
-    val A3: String = "",
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val S3: String? = null,
+    val P3: String? = null,
+    val A3: String? = null,
     val ClvMat: String = "",
     val ClvOfiMat: String = "",
     val Materia: String = "",
     val Cdts: Int = 0,
     val Calif: Int = 0,
     val Acred: String = "",
-    val S1: String = "",
-    val P1: String = "",
-    val A1: String = "",
-    val S2: String = "",
-    val P2: String = "",
-    val A2: String = "",
+    val S1: String? = null,
+    val P1: String? = null,
+    val A1: String? = null,
+    val S2: String? = null,
+    val P2: String? = null,
+    val A2: String? = null,
 )
-
+@Serializable
+data class KardexResponse(
+    val lstKardex: List<KardexItem>
+)
 @Entity(tableName = "calificaciones_unidad")
 @Serializable
 data class CalificacionesUnidadItem(
-    @PrimaryKey val index: Int = 0,
-    val Observaciones: String = "",
-    val C13: String = "",
-    val C12: String = "",
-    val C11: String = "",
-    val C10: String = "",
-    val C9: String = "",
-    val C8: String = "",
-    val C7: String = "",
-    val C6: String = "",
-    val C5: String = "",
-    val C4: String = "",
-    val C3: String = "",
-    val C2: String = "",
-    val C1: String = "",
-    val UnidadesActivas: String = "",
-    val Materia: String = "",
-    val Grupo: String = "",
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val Observaciones: String? = "",
+    val C13: String? = null,
+    val C12: String? = null,
+    val C11: String? = null,
+    val C10: String? = null,
+    val C9: String? = null,
+    val C8: String? = null,
+    val C7: String? = null,
+    val C6: String? = null,
+    val C5: String? = null,
+    val C4: String? = null,
+    val C3: String? = null,
+    val C2: String? = null,
+    val C1: String? = null,
+    val UnidadesActivas: String? = "",
+    val Materia: String? = "",
+    val Grupo: String? = "",
 )
 
 @Entity(tableName = "calificacion_final")
 @Serializable
 data class CalificacionFinalItem(
-    @PrimaryKey val index: Int = 0,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val calif: Int = 0,
     val acred: String = "",
     val grupo: String = "",

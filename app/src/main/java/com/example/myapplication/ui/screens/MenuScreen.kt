@@ -1,6 +1,7 @@
 package com.example.myapplication.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,6 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.viewmodel.*
 import androidx.compose.material3.*
+import com.example.myapplication.DB.Entidad.CalificacionFinalItem
+import com.example.myapplication.DB.Entidad.CalificacionesUnidadItem
+import com.example.myapplication.DB.Entidad.CargaAcademica
+import com.example.myapplication.DB.Entidad.KardexItem
 
 @Composable
 fun MenuScreen(
@@ -42,7 +47,7 @@ fun MenuScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 🔷 CARDS DEL MENÚ
+        // CARDS DEL MENÚ
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
             MenuCard(
@@ -154,7 +159,7 @@ fun MenuCard(
 /* ========================= */
 
 @Composable
-fun CargaAcademicaTable(lista: List<CargaAcademicaItem>) {
+fun CargaAcademicaTable(lista: List<CargaAcademica>) {
 
     SectionTitle("Carga Académica")
 
@@ -206,8 +211,59 @@ fun CalificacionesUnidadTable(lista: List<CalificacionesUnidadItem>) {
 
     lista.forEach { item ->
         InfoCard {
-            Text(item.Materia, fontWeight = FontWeight.Bold)
-            Text("Grupo: ${item.Grupo}")
+            Text(item.Materia ?: "Sin nombre", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Grupo: ${item.Grupo ?: "N/A"}", color = Color.Gray, fontSize = 14.sp)
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Fila con scroll para las unidades
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Lista de pares (Etiqueta, Valor)
+                val unidades = listOf(
+                    "U1" to item.C1, "U2" to item.C2, "U3" to item.C3,
+                    "U4" to item.C4, "U5" to item.C5, "U6" to item.C6,
+                    "U7" to item.C7, "U8" to item.C8, "U9" to item.C9,
+                    "U10" to item.C10, "U11" to item.C11, "U12" to item.C12,
+                    "U13" to item.C13
+                )
+
+                unidades.forEach { (nombre, calif) ->
+                    // Solo mostramos la unidad si no es nula
+                    if (calif != null) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        ) {
+                            Text(
+                                text = nombre,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.DarkGray
+                            )
+                            Text(
+                                text = if (calif == "0") "-" else calif,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = if (calif == "0") Color.LightGray else Color(0xFF1976D2)
+                            )
+                        }
+                    }
+                }
+            }
+
+//            if (!item.Observaciones.isNullOrBlank()) {
+//                Spacer(modifier = Modifier.height(8.dp))
+//                Text(
+//                    text = "Obs: ${item.Observaciones}",
+//                    fontSize = 12.sp,
+//                    color = Color.Red
+//                )
+//            }
         }
     }
 }

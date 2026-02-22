@@ -5,7 +5,12 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.example.myapplication.DB.DAO.DaoCalificacionesFinal
+import com.example.myapplication.DB.Entidad.CalificacionFinalItem
+import com.example.myapplication.DB.Entidad.CalificacionesUnidadItem
+import com.example.myapplication.DB.Entidad.CargaAcademica
 import com.example.myapplication.DB.Entidad.Estudiante
+import com.example.myapplication.DB.Entidad.KardexItem
 import com.example.myapplication.SICENETApplication
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
@@ -17,6 +22,8 @@ private const val KEY_MATRICULA = "key_matricula"
 private const val KEY_PASSWORD = "key_password"
 private const val KEY_PROFILE_DATA = "key_profile_data"
 private const val KEY_SYNC_TIMESTAMP = "key_sync_timestamp"
+
+private const val KEY_RESULT_JSON  = "key_result_json"
 private const val TAG = "SyncWorkers"
 
 private val jsonParser = Json { ignoreUnknownKeys = true }
@@ -111,5 +118,56 @@ class GuardarDatosPerfilWorker(
             Log.e(TAG, "Error en SaveProfileDataWorker", e)
             Result.failure()
         }
+    }
+}
+
+/*
+/ WORKER PAR SU LLAMADO DE LOS OTROS METODOSM, YA SEA PARA LOS DATOS DE LA DB LOCAL O DE LA API DE CARGA ACADEMICA
+ */
+
+class SyncDatosWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
+    override suspend fun doWork(): Result {
+        val tipo = inputData.getString("tipo_dato") ?: return Result.failure()
+        val repo = (applicationContext as SICENETApplication).container.snRepository
+
+        return try {
+            val res = when(tipo) {
+                "KARDEX" -> repo.getKardex()
+                "CALIF_UNIDAD" -> repo.getCalificacionesUnidad()
+                "CALIF_FINAL" -> repo.getCalificacionesFinales()
+                else -> ""
+            }
+            Result.success(workDataOf(KEY_RESULT_JSON to res, "tipo_dato" to tipo))
+        } catch (e: Exception) { Result.failure() }
+    }
+}
+
+class SaveDataWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
+    override suspend fun doWork(): Result {
+        val datos = inputData.getString(KEY_RESULT_JSON) ?: return Result.failure()
+        val tipo = inputData.getString("tipo_dato") ?: return Result.failure()
+        val db = (applicationContext as SICENETApplication).container.database
+
+        return try {
+            when(tipo) {
+                "KARDEX" -> {
+                    val items = jsonParser.decodeFromString<List<KardexItem>>(datos)
+                    items.forEach { db.kardexDao().insertarKardex(it) }
+                }
+                "CALIF_UNIDAD" -> {
+                    val items = jsonParser.decodeFromString<List<CalificacionesUnidadItem>>(datos)
+                    items.forEach { db.calificacionesUnidadDao().insertarCalificacionesUnidad(it) }
+                }
+                "CALIF_FINAL" -> {
+                    val items = jsonParser.decodeFromString<List<CalificacionFinalItem>>(datos)
+                    items.forEach { db.calificacionesFinalDao().insertarCalificacionFinal(it) }
+                }
+                "CARGA_ACADEMICA" -> {
+                    val items = jsonParser.decodeFromString<List<CargaAcademica>>(datos)
+                    items.forEach{ db.cargaAcademicaDao().insertarCargaAcademica(it)}
+                }
+            }
+            Result.success()
+        } catch (e: Exception) { Result.failure() }
     }
 }

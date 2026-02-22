@@ -6,6 +6,8 @@ import com.example.myapplication.DB.DAO.DaoCalificacionesUnidad
 import com.example.myapplication.DB.DAO.DaoCargaAcademica
 import com.example.myapplication.DB.DAO.DaoEstudiante
 import com.example.myapplication.DB.DAO.DaoKardex
+import com.example.myapplication.DB.Entidad.Estudiante
+import com.example.myapplication.network.KardexItem
 import com.example.myapplication.network.SICENETWService
 import com.example.myapplication.network.bodyPerfil
 import com.example.myapplication.network.bodyacceso
@@ -20,7 +22,7 @@ interface SNRepository {
     suspend fun acceso(m: String, p: String): String
     suspend fun datos_alumno(): String
     suspend fun getCargaAcademica(): String
-    suspend fun getKardex(): String
+    suspend fun getKardex(l: Int = 0): String
     suspend fun getCalificacionesUnidad(): String
     suspend fun getCalificacionesFinales(): String
 }
@@ -39,7 +41,6 @@ class DBLocalSNRepository(
     override suspend fun acceso(m: String, p: String): String = "SUCCESS"
 
     override suspend fun datos_alumno(): String {
-        // CORRECCIÓN: Usar getPerfilSync() que es 'suspend'
         val estudiante = daoEstudiante.getPerfilSync()
         return if (estudiante != null) Json.encodeToString(estudiante) else ""
     }
@@ -49,7 +50,7 @@ class DBLocalSNRepository(
         return Json.encodeToString(data)
     }
 
-    override suspend fun getKardex(): String {
+    override suspend fun getKardex(l: Int): String {
         val data = daoKardex.getKardexSync()
         return Json.encodeToString(data)
     }
@@ -74,9 +75,9 @@ class NetworSNRepository(
     override suspend fun acceso(m: String, p: String): String {
         return try {
             val res = snApiService.acceso(bodyacceso.format(m, p).toRequestBody())
-            val xmlResponse = res.string()
-            if (xmlResponse.contains("<accesoLoginResult>")) {
-                xmlResponse.substringAfter("<accesoLoginResult>").substringBefore("</accesoLoginResult>")
+            val xmlString = res.string()
+            if (xmlString.contains("<accesoLoginResult>")) {
+                xmlString.substringAfter("<accesoLoginResult>").substringBefore("</accesoLoginResult>")
             } else ""
         } catch (e: Exception) { "" }
     }
@@ -84,9 +85,9 @@ class NetworSNRepository(
     override suspend fun datos_alumno(): String {
         return try {
             val res = snApiService.datos_alumno(bodyPerfil.toRequestBody())
-            val xmlResponse = res.string()
-            if (xmlResponse.contains("<getAlumnoAcademicoWithLineamientoResult>")) {
-                xmlResponse.substringAfter("<getAlumnoAcademicoWithLineamientoResult>").substringBefore("</getAlumnoAcademicoWithLineamientoResult>")
+            val xmlString = res.string()
+            if (xmlString.contains("<getAlumnoAcademicoWithLineamientoResult>")) {
+                xmlString.substringAfter("<getAlumnoAcademicoWithLineamientoResult>").substringBefore("</getAlumnoAcademicoWithLineamientoResult>")
             } else ""
         } catch (e: Exception) { "" }
     }
@@ -94,29 +95,35 @@ class NetworSNRepository(
     override suspend fun getCargaAcademica(): String {
         return try {
             val res = snApiService.getCargaAcademica(bodyacceso.toRequestBody())
-            val xmlResponse = res.string()
-            if (xmlResponse.contains("<getCargaAcademicaByAlumnoResult>")) {
-                xmlResponse.substringAfter("<getCargaAcademicaByAlumnoResult>").substringBefore("</getCargaAcademicaByAlumnoResult>")
+            val xmlString = res.string()
+            if (xmlString.contains("<getCargaAcademicaByAlumnoResult>")) {
+                xmlString.substringAfter("<getCargaAcademicaByAlumnoResult>").substringBefore("</getCargaAcademicaByAlumnoResult>")
             } else ""
         } catch (e: Exception) { "" }
     }
 
-    override suspend fun getKardex(): String {
+    override suspend fun getKardex(l: Int): String {
         return try {
-            val res = snApiService.getKardex(bodyacceso.toRequestBody())
-            val xmlResponse = res.string()
-            if (xmlResponse.contains("<getAllKardexConPromedioByAlumnoResult>")) {
-                xmlResponse.substringAfter("<getAllKardexConPromedioByAlumnoResult>").substringBefore("</getAllKardexConPromedioByAlumnoResult>")
+            val res = snApiService.getKardex(KardexItem.format(l).toRequestBody())
+            // CORRECCIÓN: Leer el string UNA SOLA VEZ y guardarlo en una variable
+            val xmlString = res.string() 
+            Log.d("KAR", "Respuesta recibida: $xmlString")
+            
+            if (xmlString.contains("<getAllKardexConPromedioByAlumnoResult>")) {
+                xmlString.substringAfter("<getAllKardexConPromedioByAlumnoResult>").substringBefore("</getAllKardexConPromedioByAlumnoResult>")
             } else ""
-        } catch (e: Exception) { "" }
+        } catch (e: Exception) { 
+            Log.e("KAR", "Error en getKardex", e)
+            "" 
+        }
     }
 
     override suspend fun getCalificacionesUnidad(): String {
         return try {
             val res = snApiService.getCalificacionesUnidad(bodyacceso.toRequestBody())
-            val xmlResponse = res.string()
-            if (xmlResponse.contains("<getCalifUnidadesByAlumnoResult>")) {
-                xmlResponse.substringAfter("<getCalifUnidadesByAlumnoResult>").substringBefore("</getCalifUnidadesByAlumnoResult>")
+            val xmlString = res.string()
+            if (xmlString.contains("<getCalifUnidadesByAlumnoResult>")) {
+                xmlString.substringAfter("<getCalifUnidadesByAlumnoResult>").substringBefore("</getCalifUnidadesByAlumnoResult>")
             } else ""
         } catch (e: Exception) { "" }
     }
@@ -124,9 +131,9 @@ class NetworSNRepository(
     override suspend fun getCalificacionesFinales(): String {
         return try {
             val res = snApiService.getCalificacionesFinales(bodyacceso.toRequestBody())
-            val xmlResponse = res.string()
-            if (xmlResponse.contains("<getAllCalifFinalByAlumnosResult>")) {
-                xmlResponse.substringAfter("<getAllCalifFinalByAlumnosResult>").substringBefore("</getAllCalifFinalByAlumnosResult>")
+            val xmlString = res.string()
+            if (xmlString.contains("<getAllCalifFinalByAlumnosResult>")) {
+                xmlString.substringAfter("<getAllCalifFinalByAlumnosResult>").substringBefore("</getAllCalifFinalByAlumnosResult>")
             } else ""
         } catch (e: Exception) { "" }
     }

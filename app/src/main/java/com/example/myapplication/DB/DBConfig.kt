@@ -15,7 +15,8 @@ import com.example.myapplication.DB.Entidad.CargaAcademica
 import com.example.myapplication.DB.Entidad.Estudiante
 import com.example.myapplication.DB.Entidad.KardexItem
 
-@Database(entities = [Estudiante::class, CargaAcademica::class, KardexItem::class, CalificacionesUnidadItem::class, CalificacionFinalItem::class], version = 2, exportSchema = false)
+@Database(entities = [Estudiante::class, CargaAcademica::class, KardexItem::class, CalificacionesUnidadItem::class, CalificacionFinalItem::class],
+    version = 5, exportSchema = false)
 abstract class AppDataBase : RoomDatabase(){
     abstract fun perfilDao(): DaoEstudiante
     abstract fun cargaAcademicaDao(): DaoCargaAcademica
@@ -31,6 +32,7 @@ abstract class AppDataBase : RoomDatabase(){
         fun getDatabase(context: Context):AppDataBase {
             return Instance ?: synchronized(this) {
                 Room.databaseBuilder(context, AppDataBase::class.java, "sicenet_db")
+                    .fallbackToDestructiveMigration()
                     .build()
                     .also { Instance = it}
             }
