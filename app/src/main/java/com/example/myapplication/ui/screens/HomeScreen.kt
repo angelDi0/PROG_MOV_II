@@ -25,6 +25,9 @@ import coil.compose.AsyncImage
 import com.example.myapplication.DB.Entidad.Estudiante
 import com.example.myapplication.viewmodel.SNViewModel
 import kotlinx.serialization.InternalSerializationApi
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(InternalSerializationApi::class)
 @Composable
@@ -61,6 +64,26 @@ fun HomeScreen(
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
+
+                    // MUESTA LA FECHA DE LA ULTIMA ACTUALIAZCION
+
+                    val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                    val fechaFormateada = sdf.format(Date(alumno.lastUpdated))
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Actualizado: $fechaFormateada",
+                            fontSize = 11.sp,
+                            color = Color.Gray
+                        )
+                    }
                 }
                 AsyncImage(
                     model = "https://sicenet.surguanajuato.tecnm.mx/fotos/${alumno.urlFoto}",

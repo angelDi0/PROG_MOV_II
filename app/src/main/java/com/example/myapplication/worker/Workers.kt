@@ -21,12 +21,13 @@ private const val KEY_MATRICULA = "key_matricula"
 private const val KEY_PASSWORD = "key_password"
 private const val KEY_PROFILE_DATA = "key_profile_data"
 private const val KEY_SYNC_TIMESTAMP = "key_sync_timestamp"
+private const val KEY_TEMP_FILE = "key_temp_file" // Nueva constante para el nombre del archivo
 private const val TAG = "SyncWorkers"
 
 private val jsonParser = Json { ignoreUnknownKeys = true }
 
 /**
- * Worker para el perfil (Login)
+ * Worker para el perfil (Login) - Los datos de perfil suelen ser pequeños, se pueden pasar por Data.
  */
 class SyncProfileDataWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
@@ -50,9 +51,6 @@ class SyncProfileDataWorker(ctx: Context, params: WorkerParameters) : CoroutineW
     }
 }
 
-/**
- * Worker para guardar el perfil
- */
 class GuardarDatosPerfilWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val profileData = inputData.getString(KEY_PROFILE_DATA) ?: return Result.failure()
@@ -69,19 +67,15 @@ class GuardarDatosPerfilWorker(ctx: Context, params: WorkerParameters) : Corouti
 }
 
 /**
- * Worker TODO-EN-UNO: Descarga y guarda solo si hay cambios.
+ * Worker 1: Descarga los datos y los guarda en un archivo interno para evitar el límite de 10KB.
  */
-class SyncDatosWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
+class FetchDataWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val tipo = inputData.getString("tipo_dato") ?: return Result.failure()
         val lineamiento = inputData.getInt("lineamiento", 0)
-
-        val app = (applicationContext as SICENETApplication)
-        val repo = app.container.snRepository
-        val db = app.container.database
+        val repo = (applicationContext as SICENETApplication).container.snRepository
 
         return try {
-            // 1. Descarga del servidor
             val res = when(tipo) {
                 "KARDEX" -> repo.getKardex(lineamiento)
                 "CALIF_UNIDAD" -> repo.getCalificacionesUnidad()
@@ -91,8 +85,35 @@ class SyncDatosWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
             }
 
             if (res.isBlank()) return Result.failure()
+            
+            // ESCRIBIR EN ARCHIVO INTERNO
+            val fileName = "temp_sync_${tipo}.json"
+            applicationContext.openFileOutput(fileName, Context.MODE_PRIVATE).use { 
+                it.write(res.toByteArray()) 
+            }
 
-            // 2. Lógica de comparación y guardado
+            // Solo pasamos el nombre del archivo, que es un String pequeño
+            Result.success(workDataOf(KEY_TEMP_FILE to fileName, "tipo_dato" to tipo))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error descargando $tipo", e)
+            Result.failure()
+        }
+    }
+}
+
+/**
+ * Worker 2: Lee el archivo temporal, compara y guarda en la DB.
+ */
+class SaveDataWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
+    override suspend fun doWork(): Result {
+        val fileName = inputData.getString(KEY_TEMP_FILE) ?: return Result.failure()
+        val tipo = inputData.getString("tipo_dato") ?: return Result.failure()
+        val db = (applicationContext as SICENETApplication).container.database
+
+        return try {
+            // LEER DESDE EL ARCHIVO
+            val res = applicationContext.openFileInput(fileName).bufferedReader().use { it.readText() }
+
             when(tipo) {
                 "KARDEX" -> {
                     val response = if (res.trim().startsWith("[")) {
@@ -100,55 +121,44 @@ class SyncDatosWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
                     } else {
                         jsonParser.decodeFromString<KardexResponse>(res)
                     }
-
-                    // OBTENER DATOS ACTUALES DE LA DB
                     val datosLocales = db.kardexDao().getKardexSync()
-
-                    // SOLO GUARDAR SI HAY CAMBIOS
                     if (response.lstKardex != datosLocales) {
-                        Log.d(TAG, "Cambios detectados en KARDEX. Actualizando...")
-                        db.kardexDao().eliminarTodo() // Opcional: limpiar antes de insertar
+                        db.kardexDao().eliminarTodo()
                         response.lstKardex.forEach { db.kardexDao().insertarKardex(it) }
-                    } else {
-                        Log.d(TAG, "KARDEX sin cambios. Omitiendo guardado.")
                     }
                 }
-
                 "CALIF_UNIDAD" -> {
-                    val itemsNuevos = jsonParser.decodeFromString<List<CalificacionesUnidadItem>>(res)
-                    val itemsLocales = db.calificacionesUnidadDao().getCalificacionesUnidadSync()
-
-                    if (itemsNuevos != itemsLocales) {
-                        Log.d(TAG, "Cambios en CALIF_UNIDAD. Actualizando...")
+                    val nuevos = jsonParser.decodeFromString<List<CalificacionesUnidadItem>>(res)
+                    val locales = db.calificacionesUnidadDao().getCalificacionesUnidadSync()
+                    if (nuevos != locales) {
                         db.calificacionesUnidadDao().eliminarTodo()
-                        itemsNuevos.forEach { db.calificacionesUnidadDao().insertarCalificacionesUnidad(it) }
+                        nuevos.forEach { db.calificacionesUnidadDao().insertarCalificacionesUnidad(it) }
                     }
                 }
-
                 "CALIF_FINAL" -> {
-                    val itemsNuevos = jsonParser.decodeFromString<List<CalificacionFinalItem>>(res)
-                    val itemsLocales = db.calificacionesFinalDao().getCalificacionesFinalesSync()
-
-                    if (itemsNuevos != itemsLocales) {
+                    val nuevos = jsonParser.decodeFromString<List<CalificacionFinalItem>>(res)
+                    val locales = db.calificacionesFinalDao().getCalificacionesFinalesSync()
+                    if (nuevos != locales) {
                         db.calificacionesFinalDao().eliminarTodo()
-                        itemsNuevos.forEach { db.calificacionesFinalDao().insertarCalificacionFinal(it) }
+                        nuevos.forEach { db.calificacionesFinalDao().insertarCalificacionFinal(it) }
                     }
                 }
-
                 "CARGA_ACADEMICA" -> {
-                    val itemsNuevos = jsonParser.decodeFromString<List<CargaAcademica>>(res)
-                    val itemsLocales = db.cargaAcademicaDao().getCargaAcademicaSync()
-
-                    if (itemsNuevos != itemsLocales) {
+                    val nuevos = jsonParser.decodeFromString<List<CargaAcademica>>(res)
+                    val locales = db.cargaAcademicaDao().getCargaAcademicaSync()
+                    if (nuevos != locales) {
                         db.cargaAcademicaDao().eliminarTodo()
-                        itemsNuevos.forEach { db.cargaAcademicaDao().insertarCargaAcademica(it) }
+                        nuevos.forEach { db.cargaAcademicaDao().insertarCargaAcademica(it) }
                     }
                 }
             }
-
+            
+            // BORRAR ARCHIVO TEMPORAL para liberar espacio
+            applicationContext.deleteFile(fileName)
+            
             Result.success()
         } catch (e: Exception) {
-            Log.e(TAG, "Error sincronizando $tipo", e)
+            Log.e(TAG, "Error guardando $tipo", e)
             Result.failure()
         }
     }

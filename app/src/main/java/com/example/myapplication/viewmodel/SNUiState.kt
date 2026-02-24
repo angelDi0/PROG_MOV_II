@@ -26,8 +26,9 @@ import com.example.myapplication.DB.Entidad.CargaAcademica
 import com.example.myapplication.DB.Entidad.Estudiante
 import com.example.myapplication.DB.Entidad.KardexItem
 import com.example.myapplication.SICENETApplication
+import com.example.myapplication.worker.FetchDataWorker
 import com.example.myapplication.worker.GuardarDatosPerfilWorker
-import com.example.myapplication.worker.SyncDatosWorker
+import com.example.myapplication.worker.SaveDataWorker
 import com.example.myapplication.worker.SyncProfileDataWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -261,7 +262,6 @@ class SNViewModel(
                         snUiState = SNUiState.Syncing("Sincronizando con el servidor...")
                     }
                     WorkInfo.State.SUCCEEDED -> {
-                        // El Worker ya guardó en la DB, ahora cargamos de local para mostrar
                         cargarDesdeLocal(screen)
                     }
                     WorkInfo.State.FAILED -> {
@@ -322,15 +322,20 @@ class SNViewModel(
             else -> ""
         }
 
-        val syncRequest = OneTimeWorkRequestBuilder<SyncDatosWorker>()
+        val syncRequest = OneTimeWorkRequestBuilder<FetchDataWorker>()
             .setInputData(workDataOf(
                 "tipo_dato" to tipo,
                 "lineamiento" to (alumnoData?.lineamiento ?: 0)
             ))
             .build()
+        val saveDataWorker = OneTimeWorkRequestBuilder<SaveDataWorker>().build()
 
-        // Ejecutamos solo el SyncDatosWorker porque él mismo guarda en la DB
-        workManager.enqueueUniqueWork("sync_$tipo", ExistingWorkPolicy.KEEP, syncRequest)
+        // EJECUTAMOS LOS WORKERS PARALELO
+        workManager
+            .beginUniqueWork("sync_$tipo", ExistingWorkPolicy.REPLACE, syncRequest)
+            .then(saveDataWorker)
+            .enqueue()
+
     }
 
     companion object {
