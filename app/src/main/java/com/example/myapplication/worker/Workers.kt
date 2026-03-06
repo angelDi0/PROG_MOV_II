@@ -56,6 +56,8 @@ class GuardarDatosPerfilWorker(ctx: Context, params: WorkerParameters) : Corouti
         val profileData = inputData.getString(KEY_PROFILE_DATA) ?: return Result.failure()
         return try {
             val estudiante = jsonParser.decodeFromString<Estudiante>(profileData)
+
+            Log.d("ISV", estudiante.toString())
             val dao = (applicationContext as SICENETApplication).container.database.perfilDao()
             dao.insertarDatosPerfil(estudiante)
             Result.success()

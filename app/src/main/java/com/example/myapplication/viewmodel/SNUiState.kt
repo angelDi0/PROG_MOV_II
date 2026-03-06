@@ -38,7 +38,7 @@ import kotlinx.serialization.json.Json
 import java.util.UUID
 
 
-// 1. Estados de la UI
+// Estados de la UI
 sealed interface SNUiState {
     data class Success(val message: String) : SNUiState
     object Error : SNUiState
@@ -47,7 +47,7 @@ sealed interface SNUiState {
     data class Syncing(val message: String) : SNUiState
 }
 
-// 2. Constantes para WorkManager.
+// Constantes para WorkManager.
 private const val UNIQUE_PROFILE_SYNC_WORK = "UniqueProfileSyncWork"
 private const val KEY_MATRICULA = "key_matricula"
 private const val KEY_PASSWORD = "key_password"
@@ -81,7 +81,6 @@ class SNViewModel(
     var matriculaInput by mutableStateOf("")
     var passwordInput by mutableStateOf("")
 
-    // Estado del alumno usando la entidad de Room
     var alumnoData by mutableStateOf<Estudiante?>(null)
         private set
 
@@ -115,19 +114,29 @@ class SNViewModel(
         viewModelScope.launch {
             if (!tieneInternet(context)) {
                 Log.d("ISV", "No tiene internet!!")
+
+                val shared = context.getSharedPreferences("sesion_usuario", Context.MODE_PRIVATE)
+                val matricula = shared.getString("matricula", "") ?: ""
+                val password = shared.getString("password", "") ?: ""
+
                 snUiState = SNUiState.Syncing("Modo Offline: Cargando datos locales...")
 
-                try {
-                    val datoslocales = LocalSNRepository.datos_alumno()
-                    if(datoslocales.isNotBlank()){
-                        alumnoData = jsonFormat.decodeFromString<Estudiante>(datoslocales)
-                        snUiState = SNUiState.Success("Datos locales cargados.")
-                        currentScreen = AppScreen.Home
-                    } else {
+                if(matriculaInput == matricula && passwordInput == password){
+
+                    try {
+                        val datoslocales = LocalSNRepository.datos_alumno()
+                        if(datoslocales.isNotBlank()){
+                            alumnoData = jsonFormat.decodeFromString<Estudiante>(datoslocales)
+                            snUiState = SNUiState.Success("Datos locales cargados.")
+                            currentScreen = AppScreen.Home
+                        } else {
+                            snUiState = SNUiState.Error
+                        }
+                    } catch (e: Exception) {
+                        Log.e("SNViewModel", "Error en login offline", e)
                         snUiState = SNUiState.Error
                     }
-                } catch (e: Exception) {
-                    Log.e("SNViewModel", "Error en login offline", e)
+                } else {
                     snUiState = SNUiState.Error
                 }
             } else {
