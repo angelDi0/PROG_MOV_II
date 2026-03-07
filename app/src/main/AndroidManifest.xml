@@ -1,20 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-<!--    Permiso para el uso de internet-->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- DEFINICIÓN DE PERMISOS PERSONALIZADOS -->
+    <permission 
+        android:name="com.example.myapplication.READ_DATABASE" 
+        android:protectionLevel="normal" />
+    <permission 
+        android:name="com.example.myapplication.WRITE_DATABASE" 
+        android:protectionLevel="normal" />
+
     <application
-        android:allowBackup="true"
         android:name=".SICENETApplication"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
+        android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -22,10 +27,18 @@
             android:theme="@style/Theme.MyApplication">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- CONFIGURACIÓN PROTEGIDA DEL CONTENT PROVIDER -->
+        <provider
+            android:name=".provider.MyContentProvider"
+            android:authorities="com.example.myapplication.provider"
+            android:exported="true"
+            android:readPermission="com.example.myapplication.READ_DATABASE"
+            android:writePermission="com.example.myapplication.WRITE_DATABASE" />
+
     </application>
 
 </manifest>

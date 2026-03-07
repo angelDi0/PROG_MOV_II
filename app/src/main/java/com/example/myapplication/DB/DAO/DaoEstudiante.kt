@@ -1,5 +1,6 @@
 package com.example.myapplication.DB.DAO
 
+import android.database.Cursor
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -29,6 +30,9 @@ interface DaoCargaAcademica {
     @Query("SELECT * FROM carga_academica")
     suspend fun getCargaAcademicaSync(): List<CargaAcademica>
 
+    @Query("SELECT * FROM carga_academica")
+    fun getCargaAcademicaCursor(): Cursor
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarCargaAcademica(carga: CargaAcademica)
 
@@ -40,6 +44,9 @@ interface DaoCargaAcademica {
 interface DaoKardex {
     @Query("SELECT * FROM kardex")
     suspend fun getKardexSync(): List<KardexItem>
+
+    @Query("SELECT * FROM kardex")
+    fun getKardexCursor(): Cursor
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertarKardex(karde: KardexItem)
