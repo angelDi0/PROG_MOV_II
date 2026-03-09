@@ -43,7 +43,7 @@ class SyncProfileDataWorker(ctx: Context, params: WorkerParameters) : CoroutineW
             val profileData = repository.datos_alumno()
             val timestamp = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(Date())
             
-            Result.success(workDataOf(KEY_PROFILE_DATA to profileData, KEY_SYNC_TIMESTAMP to timestamp))
+            Result.success(workDataOf(KEY_PROFILE_DATA to profileData, KEY_SYNC_TIMESTAMP to timestamp, KEY_PASSWORD to password))
         } catch (e: Exception) { 
             Log.e(TAG, "Error en SyncProfileDataWorker", e)
             Result.failure() 
@@ -54,12 +54,14 @@ class SyncProfileDataWorker(ctx: Context, params: WorkerParameters) : CoroutineW
 class GuardarDatosPerfilWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val profileData = inputData.getString(KEY_PROFILE_DATA) ?: return Result.failure()
+        val password = inputData.getString(KEY_PASSWORD) ?: return Result.failure()
         return try {
             val estudiante = jsonParser.decodeFromString<Estudiante>(profileData)
+            val estudianteConPass = estudiante.copy(password = password)
 
             Log.d("ISV", estudiante.toString())
             val dao = (applicationContext as SICENETApplication).container.database.perfilDao()
-            dao.insertarDatosPerfil(estudiante)
+            dao.insertarDatosPerfil(estudianteConPass)
             Result.success()
         } catch (e: Exception) { 
             Log.e(TAG, "Error en GuardarDatosPerfilWorker", e)

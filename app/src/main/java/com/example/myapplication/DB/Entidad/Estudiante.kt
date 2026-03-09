@@ -8,6 +8,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Estudiante(
     @PrimaryKey() val matricula: String,
+    val password: String = "", // <--- AGREGADO
     val fechaReins: String = "",
     val modEducativo: Int = 0,
     val adeudo: Boolean = false,
@@ -22,11 +23,10 @@ data class Estudiante(
     val carrera: String = "",
     val lineamiento: Int = 0,
     val nombre: String = "",
-
-    // campo para saber cuando fue la ultima vez que se actualizo
     val lastUpdated: Long = System.currentTimeMillis()
 )
 
+// ... (Resto de entidades se mantienen igual)
 @Entity(tableName = "carga_academica")
 @Serializable
 data class CargaAcademica(
@@ -66,10 +66,6 @@ data class KardexItem(
     val S2: String? = null,
     val P2: String? = null,
     val A2: String? = null,
-)
-@Serializable
-data class KardexResponse(
-    val lstKardex: List<KardexItem>
 )
 
 @Entity(tableName = "calificaciones_unidad")
